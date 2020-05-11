@@ -39,7 +39,7 @@ func (r *SkaffoldRunner) Deploy(ctx context.Context, out io.Writer, artifacts []
 
 	for _, artifact := range artifacts {
 		color.Default.Fprintf(out, " - %s -> ", artifact.ImageName)
-		fmt.Fprintln(out, artifact.Tag)
+		fmt.Fprintln(out, artifact.DeployTag)
 	}
 
 	if r.imagesAreLocal && len(artifacts) > 0 {

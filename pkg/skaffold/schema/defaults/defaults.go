@@ -160,11 +160,12 @@ func setDefaultCloudBuildPackImage(gcb *latest.GoogleCloudBuild) {
 }
 
 func setDefaultTagger(c *latest.SkaffoldConfig) {
-	if c.Build.TagPolicy != (latest.TagPolicy{}) {
-		return
+	for _, a := range c.Build.Artifacts {
+		if a.Tags == nil {
+			policy := latest.TagPolicy{GitTagger: &latest.GitTagger{}}
+			a.Tags = []latest.TagPolicy{policy}
+		}
 	}
-
-	c.Build.TagPolicy = latest.TagPolicy{GitTagger: &latest.GitTagger{}}
 }
 
 func setDefaultKustomizePath(c *latest.SkaffoldConfig) {

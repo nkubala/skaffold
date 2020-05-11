@@ -87,7 +87,12 @@ func NewForConfig(runCtx *runcontext.RunContext) (*SkaffoldRunner, error) {
 	defaultLabeller := deploy.NewLabeller(runCtx.Opts)
 	// runCtx.Opts is last to let users override/remove any label
 	// deployer labels are added during deployment
-	labellers := []deploy.Labeller{builder, taggers, defaultLabeller}
+	labellers := []deploy.Labeller{builder, defaultLabeller}
+	for _, taggerList := range taggers {
+		for _, t := range taggerList {
+			labellers = append(labellers, t)
+		}
+	}
 
 	builder, tester, deployer = WithTimings(builder, tester, deployer, runCtx.Opts.CacheArtifacts)
 	if runCtx.Opts.Notification {
@@ -254,10 +259,10 @@ func getTaggers(runCtx *runcontext.RunContext) (map[string][]tag.Tagger, error) 
 			var err error
 			switch {
 			// TODO(nkubala): how to handle custom tags?
-			case runCtx.Opts.CustomTag != "":
-				return &tag.CustomTag{
-					Tag: runCtx.Opts.CustomTag,
-				}, nil
+			// case runCtx.Opts.CustomTag != "":
+			// 	return &tag.CustomTag{
+			// 		Tag: runCtx.Opts.CustomTag,
+			// 	}, nil
 
 			case t.EnvTemplateTagger != nil:
 				tagger, err = tag.NewEnvTemplateTagger(t.EnvTemplateTagger.Template)

@@ -37,13 +37,15 @@ func (r *SkaffoldRunner) loadImagesInKindNodes(ctx context.Context, out io.Write
 
 	var knownImages []string
 
+	// TODO(nkubala): do we need to `kind load` every tag? or is the one in the deployment enough?
+
 	for _, artifact := range artifacts {
 		// Only `kind load` the images that this runner built
-		if !r.wasBuilt(artifact.Tag) {
+		if !r.wasBuilt(artifact.DeployTag) {
 			continue
 		}
 
-		color.Default.Fprintf(out, " - %s -> ", artifact.Tag)
+		color.Default.Fprintf(out, " - %s -> ", artifact.DeployTag)
 
 		// Only `kind load` the images that are unknown to the node
 		if knownImages == nil {
@@ -53,15 +55,15 @@ func (r *SkaffoldRunner) loadImagesInKindNodes(ctx context.Context, out io.Write
 				return fmt.Errorf("unable to retrieve node's images: %w", err)
 			}
 		}
-		if util.StrSliceContains(knownImages, artifact.Tag) {
+		if util.StrSliceContains(knownImages, artifact.DeployTag) {
 			color.Green.Fprintln(out, "Found")
 			continue
 		}
 
-		cmd := exec.CommandContext(ctx, "kind", "load", "docker-image", "--name", kindCluster, artifact.Tag)
+		cmd := exec.CommandContext(ctx, "kind", "load", "docker-image", "--name", kindCluster, artifact.DeployTag)
 		if err := util.RunCmd(cmd); err != nil {
 			color.Red.Fprintln(out, "Failed")
-			return fmt.Errorf("unable to load image with kind %q: %w", artifact.Tag, err)
+			return fmt.Errorf("unable to load image with kind %q: %w", artifact.DeployTag, err)
 		}
 
 		color.Green.Fprintln(out, "Loaded")
@@ -83,7 +85,7 @@ func findKnownImages(ctx context.Context, cli *kubectl.CLI) ([]string, error) {
 
 func (r *SkaffoldRunner) wasBuilt(tag string) bool {
 	for _, built := range r.builds {
-		if built.Tag == tag {
+		if built.DeployTag == tag {
 			return true
 		}
 	}

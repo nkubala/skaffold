@@ -44,7 +44,7 @@ func (c *cache) lookupArtifacts(ctx context.Context, tags tag.ImageTags, artifac
 	return details
 }
 
-func (c *cache) lookup(ctx context.Context, a *latest.Artifact, tag string) cacheDetails {
+func (c *cache) lookup(ctx context.Context, a *latest.Artifact, tags []string) cacheDetails {
 	hash, err := c.hashForArtifact(ctx, a)
 	if err != nil {
 		return failed{err: fmt.Errorf("getting hash for artifact %q: %s", a.ImageName, err)}
@@ -56,20 +56,24 @@ func (c *cache) lookup(ctx context.Context, a *latest.Artifact, tag string) cach
 	}
 
 	if c.imagesAreLocal {
-		return c.lookupLocal(ctx, hash, tag, entry)
+		return c.lookupLocal(ctx, hash, tags, entry)
 	}
-	return c.lookupRemote(ctx, hash, tag, entry)
+	return c.lookupRemote(ctx, hash, tags, entry)
 }
 
-func (c *cache) lookupLocal(ctx context.Context, hash, tag string, entry ImageDetails) cacheDetails {
+func (c *cache) lookupLocal(ctx context.Context, hash string, tags []string, entry ImageDetails) cacheDetails {
 	if entry.ID == "" {
 		return needsBuilding{hash: hash}
 	}
 
-	// Check the imageID for the tag
-	idForTag, err := c.client.ImageID(ctx, tag)
-	if err != nil {
-		return failed{err: fmt.Errorf("getting imageID for %s: %v", tag, err)}
+	var idForTag string
+	var err error
+	for _, t := range tags {
+		// Check the imageID for the tag
+		idForTag, err := c.client.ImageID(ctx, tag)
+		if err != nil {
+			return failed{err: fmt.Errorf("getting imageID for %s: %v", tag, err)}
+		}
 	}
 
 	// Image exists locally with the same tag
@@ -85,7 +89,7 @@ func (c *cache) lookupLocal(ctx context.Context, hash, tag string, entry ImageDe
 	return needsBuilding{hash: hash}
 }
 
-func (c *cache) lookupRemote(ctx context.Context, hash, tag string, entry ImageDetails) cacheDetails {
+func (c *cache) lookupRemote(ctx context.Context, hash, tags []string, entry ImageDetails) cacheDetails {
 	if remoteDigest, err := docker.RemoteDigest(tag, c.insecureRegistries); err == nil {
 		// Image exists remotely with the same tag and digest
 		if remoteDigest == entry.Digest {

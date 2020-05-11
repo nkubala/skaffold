@@ -45,11 +45,13 @@ func (b *Builder) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, 
 	return build.InParallel(ctx, out, tags, artifacts, b.buildArtifact, *b.cfg.Concurrency)
 }
 
-func (b *Builder) buildArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
-	digestOrImageID, err := b.runBuildForArtifact(ctx, out, artifact, tag)
+func (b *Builder) buildArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
+	digestOrImageID, err := b.runBuildForArtifact(ctx, out, artifact, tags)
 	if err != nil {
 		return "", err
 	}
+
+	// TODO(nkubala): which tag do we use to get the image ID here?
 
 	if b.pushImages {
 		// only track images for pruning when building with docker
@@ -73,7 +75,7 @@ func (b *Builder) buildArtifact(ctx context.Context, out io.Writer, artifact *la
 	return build.TagWithImageID(ctx, tag, imageID, b.localDocker)
 }
 
-func (b *Builder) runBuildForArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+func (b *Builder) runBuildForArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 	if !b.pushImages {
 		// All of the builders will rely on a local Docker:
 		// + Either to build the image,
@@ -86,19 +88,19 @@ func (b *Builder) runBuildForArtifact(ctx context.Context, out io.Writer, artifa
 
 	switch {
 	case artifact.DockerArtifact != nil:
-		return b.buildDocker(ctx, out, artifact, tag)
+		return b.buildDocker(ctx, out, artifact, tags)
 
 	case artifact.BazelArtifact != nil:
-		return bazel.NewArtifactBuilder(b.localDocker, b.insecureRegistries, b.pushImages).Build(ctx, out, artifact, tag)
+		return bazel.NewArtifactBuilder(b.localDocker, b.insecureRegistries, b.pushImages).Build(ctx, out, artifact, tags)
 
 	case artifact.JibArtifact != nil:
-		return jib.NewArtifactBuilder(b.localDocker, b.insecureRegistries, b.pushImages, b.skipTests).Build(ctx, out, artifact, tag)
+		return jib.NewArtifactBuilder(b.localDocker, b.insecureRegistries, b.pushImages, b.skipTests).Build(ctx, out, artifact, tags)
 
 	case artifact.CustomArtifact != nil:
-		return custom.NewArtifactBuilder(b.localDocker, b.insecureRegistries, b.pushImages, b.retrieveExtraEnv()).Build(ctx, out, artifact, tag)
+		return custom.NewArtifactBuilder(b.localDocker, b.insecureRegistries, b.pushImages, b.retrieveExtraEnv()).Build(ctx, out, artifact, tags)
 
 	case artifact.BuildpackArtifact != nil:
-		return buildpacks.NewArtifactBuilder(b.localDocker, b.pushImages, b.devMode).Build(ctx, out, artifact, tag)
+		return buildpacks.NewArtifactBuilder(b.localDocker, b.pushImages, b.devMode).Build(ctx, out, artifact, tags)
 
 	default:
 		return "", fmt.Errorf("undefined artifact type: %+v", artifact.ArtifactType)

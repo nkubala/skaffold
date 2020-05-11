@@ -31,7 +31,7 @@ import (
 
 const bufferedLinesPerArtifact = 10000
 
-type artifactBuilder func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error)
+type artifactBuilder func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error)
 
 // For testing
 var (
@@ -110,13 +110,13 @@ func readOutputAndWriteToChannel(r io.Reader, lines chan string) {
 	close(lines)
 }
 
-func getBuildResult(ctx context.Context, cw io.Writer, tags tag.ImageTags, artifact *latest.Artifact, build artifactBuilder) (string, error) {
+func getBuildResult(ctx context.Context, cw io.Writer, imageTags tag.ImageTags, artifact *latest.Artifact, build artifactBuilder) (string, error) {
 	color.Default.Fprintf(cw, "Building [%s]...\n", artifact.ImageName)
-	tag, present := tags[artifact.ImageName]
+	tags, present := imageTags[artifact.ImageName]
 	if !present {
 		return "", fmt.Errorf("unable to find tag for image %s", artifact.ImageName)
 	}
-	return build(ctx, cw, artifact, tag)
+	return build(ctx, cw, artifact, tags)
 }
 
 func collectResults(out io.Writer, artifacts []*latest.Artifact, results *sync.Map, outputs []chan string) ([]Artifact, error) {

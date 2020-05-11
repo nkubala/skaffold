@@ -46,7 +46,8 @@ func (r *SkaffoldRunner) BuildAndTest(ctx context.Context, out io.Writer, artifa
 		for _, artifact := range artifacts {
 			bRes = append(bRes, build.Artifact{
 				ImageName: artifact.ImageName,
-				Tag:       tags[artifact.ImageName],
+				DeployTag: tags[artifact.ImageName][0],
+				Tags:      tags[artifact.ImageName],
 			})
 		}
 
@@ -79,7 +80,7 @@ func (r *SkaffoldRunner) BuildAndTest(ctx context.Context, out io.Writer, artifa
 
 	// Update which images are logged.
 	for _, build := range bRes {
-		r.podSelector.Add(build.Tag)
+		r.podSelector.Add(build.DeployTag)
 	}
 
 	// Make sure all artifacts are redeployed. Not only those that were just built.
@@ -97,7 +98,7 @@ func (r *SkaffoldRunner) DeployAndLog(ctx context.Context, out io.Writer, artifa
 	var imageNames []string
 	for _, artifact := range artifacts {
 		imageNames = append(imageNames, artifact.ImageName)
-		r.podSelector.Add(artifact.Tag)
+		r.podSelector.Add(artifact.DeployTag)
 	}
 
 	r.createLoggerForImages(out, imageNames)
@@ -156,20 +157,23 @@ func (r *SkaffoldRunner) ApplyDefaultRepo(tag string) (string, error) {
 
 // imageTags generates tags for a list of artifacts
 // imageTags generates a list of tags to apply to each artifact provided
-func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts []*latest.Artifact) ([]tag.ImageTags, error) {
+func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts []*latest.Artifact) (tag.ImageTags, error) {
 	start := time.Now()
 	color.Default.Fprintln(out, "Generating tags...")
 
-	tagErrs := make([]chan tagErr, len(artifacts))
+	// tagErrs is a list of list channels, one for each artifact.
+	// each entry is a list of channels corresponding to each tag policy
+	// defined on the given artifact.
+	tagErrs := make([][]chan tagErr, len(artifacts))
 
 	for i := range artifacts {
-		tagErrs[i] = make(chan tagErr, len(artifacts[i].Tags))
+		taggers := r.tagMap[artifacts[i].ImageName]
+		tagErrs[i] = make([]chan tagErr, len(artifacts[i].Tags))
 
 		i := i
-		for j, _ := range artifacts[i].Tags {
+		for j, tagger := range taggers {
 			go func() {
-				t := artifacts[i].Tags[j]
-				tag, err := t.GenerateFullyQualifiedImageName(artifacts[i].Workspace, artifacts[i].ImageName)
+				tag, err := tagger.GenerateFullyQualifiedImageName(artifacts[i].Workspace, artifacts[i].ImageName)
 				tagErrs[i][j] <- tagErr{tag: tag, err: err}
 			}()
 		}
@@ -181,32 +185,33 @@ func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts
 	for i, artifact := range artifacts {
 		imageName := artifact.ImageName
 		color.Default.Fprintf(out, " - %s -> ", imageName)
+		for j, _ := range r.tagMap[artifact.ImageName] {
+			select {
+			case <-ctx.Done():
+				return nil, context.Canceled
 
-		select {
-		case <-ctx.Done():
-			return nil, context.Canceled
+			case t := <-tagErrs[i][j]:
+				if t.err != nil {
+					logrus.Debugln(t.err)
+					logrus.Debugln("Using a fall-back tagger")
 
-		case t := <-tagErrs[i]:
-			if t.err != nil {
-				logrus.Debugln(t.err)
-				logrus.Debugln("Using a fall-back tagger")
+					fallbackTag, err := (&tag.ChecksumTagger{}).GenerateFullyQualifiedImageName(artifact.Workspace, imageName)
+					if err != nil {
+						return nil, fmt.Errorf("generating checksum as fall-back tag for %q: %w", imageName, err)
+					}
 
-				fallbackTag, err := (&tag.ChecksumTagger{}).GenerateFullyQualifiedImageName(artifact.Workspace, imageName)
-				if err != nil {
-					return nil, fmt.Errorf("generating checksum as fall-back tag for %q: %w", imageName, err)
+					t.tag = fallbackTag
+					showWarning = true
 				}
 
-				t.tag = fallbackTag
-				showWarning = true
-			}
+				tag, err := r.ApplyDefaultRepo(t.tag)
+				if err != nil {
+					return nil, err
+				}
 
-			tag, err := r.ApplyDefaultRepo(t.tag)
-			if err != nil {
-				return nil, err
+				fmt.Fprintln(out, tag)
+				imageTags[imageName] = append(imageTags[imageName], tag)
 			}
-
-			fmt.Fprintln(out, tag)
-			imageTags[imageName] = tag
 		}
 	}
 
