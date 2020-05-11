@@ -107,11 +107,6 @@ type BuildConfig struct {
 	// These registries will be connected to via HTTP instead of HTTPS.
 	InsecureRegistries []string `yaml:"insecureRegistries,omitempty"`
 
-	// TagPolicy *beta* determines how images are tagged.
-	// A few strategies are provided here, although you most likely won't need to care!
-	// If not specified, it defaults to `gitCommit: {variant: Tags}`.
-	TagPolicy TagPolicy `yaml:"tagPolicy,omitempty"`
-
 	BuildType `yaml:",inline"`
 }
 
@@ -607,6 +602,11 @@ type Artifact struct {
 
 	// ArtifactType describes how to build an artifact.
 	ArtifactType `yaml:",inline"`
+
+	// TagPolicy *beta* determines how images are tagged.
+	// A few strategies are provided here, although you most likely won't need to care!
+	// If not specified, it defaults to `gitCommit: {variant: Tags}`.
+	Tags []TagPolicy `yaml:"tagPolicy,omitempty"`
 }
 
 // Sync *beta* specifies what files to sync into the container.

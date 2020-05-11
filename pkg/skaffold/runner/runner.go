@@ -55,6 +55,7 @@ type SkaffoldRunner struct {
 	deployer              deploy.Deployer
 	tester                test.Tester
 	tagger                tag.Tagger
+	tagMap                map[string][]tag.Tagger
 	syncer                sync.Syncer
 	monitor               filemon.Monitor
 	listener              Listener

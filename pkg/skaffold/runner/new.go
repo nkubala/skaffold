@@ -42,7 +42,7 @@ import (
 
 // NewForConfig returns a new SkaffoldRunner for a SkaffoldConfig
 func NewForConfig(runCtx *runcontext.RunContext) (*SkaffoldRunner, error) {
-	tagger, err := getTagger(runCtx)
+	taggers, err := getTaggers(runCtx)
 	if err != nil {
 		return nil, fmt.Errorf("creating tagger: %w", err)
 	}
@@ -87,7 +87,7 @@ func NewForConfig(runCtx *runcontext.RunContext) (*SkaffoldRunner, error) {
 	defaultLabeller := deploy.NewLabeller(runCtx.Opts)
 	// runCtx.Opts is last to let users override/remove any label
 	// deployer labels are added during deployment
-	labellers := []deploy.Labeller{builder, tagger, defaultLabeller}
+	labellers := []deploy.Labeller{builder, taggers, defaultLabeller}
 
 	builder, tester, deployer = WithTimings(builder, tester, deployer, runCtx.Opts.CacheArtifacts)
 	if runCtx.Opts.Notification {
@@ -110,7 +110,7 @@ func NewForConfig(runCtx *runcontext.RunContext) (*SkaffoldRunner, error) {
 		builder:  builder,
 		tester:   tester,
 		deployer: deployer,
-		tagger:   tagger,
+		tagMap:   taggers,
 		syncer:   syncer,
 		monitor:  monitor,
 		listener: &SkaffoldListener{
@@ -245,28 +245,41 @@ func getDeployer(runCtx *runcontext.RunContext) (deploy.Deployer, error) {
 	return deployers, nil
 }
 
-func getTagger(runCtx *runcontext.RunContext) (tag.Tagger, error) {
-	t := runCtx.Cfg.Build.TagPolicy
+// getTaggers maps each artifact to its list of taggers
+func getTaggers(runCtx *runcontext.RunContext) (map[string][]tag.Tagger, error) {
+	taggers := make(map[string][]tag.Tagger, len(runCtx.Cfg.Build.Artifacts))
+	for _, a := range runCtx.Cfg.Build.Artifacts {
+		for _, t := range a.Tags {
+			var tagger tag.Tagger
+			var err error
+			switch {
+			// TODO(nkubala): how to handle custom tags?
+			case runCtx.Opts.CustomTag != "":
+				return &tag.CustomTag{
+					Tag: runCtx.Opts.CustomTag,
+				}, nil
 
-	switch {
-	case runCtx.Opts.CustomTag != "":
-		return &tag.CustomTag{
-			Tag: runCtx.Opts.CustomTag,
-		}, nil
+			case t.EnvTemplateTagger != nil:
+				tagger, err = tag.NewEnvTemplateTagger(t.EnvTemplateTagger.Template)
 
-	case t.EnvTemplateTagger != nil:
-		return tag.NewEnvTemplateTagger(t.EnvTemplateTagger.Template)
+			case t.ShaTagger != nil:
+				tagger, err = &tag.ChecksumTagger{}, nil
 
-	case t.ShaTagger != nil:
-		return &tag.ChecksumTagger{}, nil
+			case t.GitTagger != nil:
+				tagger, err = tag.NewGitCommit(t.GitTagger.Prefix, t.GitTagger.Variant)
 
-	case t.GitTagger != nil:
-		return tag.NewGitCommit(t.GitTagger.Prefix, t.GitTagger.Variant)
+			case t.DateTimeTagger != nil:
+				tagger, err = tag.NewDateTimeTagger(t.DateTimeTagger.Format, t.DateTimeTagger.TimeZone), nil
 
-	case t.DateTimeTagger != nil:
-		return tag.NewDateTimeTagger(t.DateTimeTagger.Format, t.DateTimeTagger.TimeZone), nil
-
-	default:
-		return nil, fmt.Errorf("unknown tagger for strategy %+v", t)
+			default:
+				return nil, fmt.Errorf("unknown tagger for strategy %+v", t)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("error creating tagger: %+v", err.Error())
+			}
+			taggers[a.ImageName] = append(taggers[a.ImageName], tagger)
+		}
 	}
+	// t := runCtx.Cfg.Build.TagPolicy
+	return taggers, nil
 }

@@ -155,20 +155,24 @@ func (r *SkaffoldRunner) ApplyDefaultRepo(tag string) (string, error) {
 }
 
 // imageTags generates tags for a list of artifacts
-func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts []*latest.Artifact) (tag.ImageTags, error) {
+// imageTags generates a list of tags to apply to each artifact provided
+func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts []*latest.Artifact) ([]tag.ImageTags, error) {
 	start := time.Now()
 	color.Default.Fprintln(out, "Generating tags...")
 
 	tagErrs := make([]chan tagErr, len(artifacts))
 
 	for i := range artifacts {
-		tagErrs[i] = make(chan tagErr, 1)
+		tagErrs[i] = make(chan tagErr, len(artifacts[i].Tags))
 
 		i := i
-		go func() {
-			tag, err := r.tagger.GenerateFullyQualifiedImageName(artifacts[i].Workspace, artifacts[i].ImageName)
-			tagErrs[i] <- tagErr{tag: tag, err: err}
-		}()
+		for j, _ := range artifacts[i].Tags {
+			go func() {
+				t := artifacts[i].Tags[j]
+				tag, err := t.GenerateFullyQualifiedImageName(artifacts[i].Workspace, artifacts[i].ImageName)
+				tagErrs[i][j] <- tagErr{tag: tag, err: err}
+			}()
+		}
 	}
 
 	imageTags := make(tag.ImageTags, len(artifacts))
