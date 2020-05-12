@@ -47,22 +47,23 @@ func (b *Builder) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, 
 	return build.InParallel(ctx, out, tags, artifacts, b.buildArtifact, b.ClusterDetails.Concurrency)
 }
 
-func (b *Builder) buildArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
-	digest, err := b.runBuildForArtifact(ctx, out, artifact, tag)
+// TODO(nkubala): do we want to return all tags here? or just the one used in deployment?
+func (b *Builder) buildArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
+	digest, err := b.runBuildForArtifact(ctx, out, artifact, tags)
 	if err != nil {
 		return "", err
 	}
 
-	return build.TagWithDigest(tag, digest), nil
+	return build.TagWithDigest(tags[0], digest), nil
 }
 
-func (b *Builder) runBuildForArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+func (b *Builder) runBuildForArtifact(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 	switch {
 	case artifact.KanikoArtifact != nil:
-		return b.buildWithKaniko(ctx, out, artifact.Workspace, artifact.KanikoArtifact, tag)
+		return b.buildWithKaniko(ctx, out, artifact.Workspace, artifact.KanikoArtifact, tags)
 
 	case artifact.CustomArtifact != nil:
-		return custom.NewArtifactBuilder(nil, b.insecureRegistries, true, b.retrieveExtraEnv()).Build(ctx, out, artifact, tag)
+		return custom.NewArtifactBuilder(nil, b.insecureRegistries, true, b.retrieveExtraEnv()).Build(ctx, out, artifact, tags)
 
 	default:
 		return "", fmt.Errorf("unsupported artifact type: %+v", artifact.ArtifactType)

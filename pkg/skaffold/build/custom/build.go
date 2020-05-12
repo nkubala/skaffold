@@ -26,21 +26,55 @@ import (
 )
 
 // Build builds an artifact using a custom script
-func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
-	if err := b.runBuildScript(ctx, out, artifact, tag); err != nil {
+func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
+	if err := b.runBuildScript(ctx, out, artifact, tags[0]); err != nil {
 		return "", fmt.Errorf("building custom artifact: %w", err)
 	}
 
 	if b.pushImages {
-		return docker.RemoteDigest(tag, b.insecureRegistries)
+		digest, err := docker.RemoteDigest(tags[0], b.insecureRegistries)
+		if err != nil {
+			return "", err
+		}
+		for _, tag := range tags {
+			if err := docker.AddRemoteTag(digest, tag, b.insecureRegistries); err != nil {
+				return "", fmt.Errorf("adding tag to remote image: %s", err.Error())
+			}
+		}
+		return digest, nil
 	}
 
-	imageID, err := b.localDocker.ImageID(ctx, tag)
-	if err != nil {
-		return "", err
+	// look for any of the tags provided in the local daemon.
+	// if none are found, the script didn't fulfill its contract, so error.
+	// otherwise, for the ones that weren't found, create the tags.
+	foundTags := map[string]bool{}
+	var (
+		foundOne bool
+		imageID  string
+		err      error
+	)
+	for _, tag := range tags {
+		imageID, err = b.localDocker.ImageID(ctx, tag)
+		if err != nil {
+			return "", err
+		}
+		if imageID != "" {
+			foundTags[tag] = true
+			foundOne = true
+		}
 	}
-	if imageID == "" {
-		return "", fmt.Errorf("the custom script didn't produce an image with tag [%s]", tag)
+
+	if !foundOne {
+		return "", fmt.Errorf("the custom script didn't produce an image with any of the provided tags: %+v", tags)
+	}
+
+	for tag, ok := range foundTags {
+		if !ok {
+			// tag image
+			if err := b.localDocker.Tag(ctx, imageID, tag); err != nil {
+				return "", fmt.Errorf("adding tag to image: %s", err.Error())
+			}
+		}
 	}
 
 	return imageID, nil

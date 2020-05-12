@@ -143,20 +143,23 @@ func maintainArtifactOrder(built []build.Artifact, artifacts []*latest.Artifact)
 	return ordered
 }
 
+// TODO(nkubala): is it ok to just use the first tag here?
+// I suspect no - if a new tag is added in the skaffold.yaml we will ignore it.
+// we'll likely need to create an list of entries for each tag on the artifact. let's roll with this for now though.
 func (c *cache) addArtifacts(ctx context.Context, bRes []build.Artifact, hashByName map[string]string) error {
 	for _, a := range bRes {
 		entry := ImageDetails{}
 
 		if !c.imagesAreLocal {
-			ref, err := docker.ParseReference(a.Tag)
+			ref, err := docker.ParseReference(a.Tags[0])
 			if err != nil {
-				return fmt.Errorf("parsing reference %q: %w", a.Tag, err)
+				return fmt.Errorf("parsing reference %q: %w", a.Tags[0], err)
 			}
 
 			entry.Digest = ref.Digest
 		}
 
-		imageID, err := c.client.ImageID(ctx, a.Tag)
+		imageID, err := c.client.ImageID(ctx, a.Tags[0])
 		if err != nil {
 			return err
 		}

@@ -52,7 +52,7 @@ func MergeWithPreviousBuilds(builds, previous []Artifact) []Artifact {
 	return merged
 }
 
-func TagWithDigest(tag, digest string) string {
+func TagWithDigest(tag string, digest string) string {
 	return tag + "@" + digest
 }
 

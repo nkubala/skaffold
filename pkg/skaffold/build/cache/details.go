@@ -61,7 +61,7 @@ type needsTagging interface {
 // Found locally with wrong tag. Needs retagging
 type needsLocalTagging struct {
 	hash    string
-	tag     string
+	tags    []string
 	imageID string
 }
 
@@ -70,13 +70,18 @@ func (d needsLocalTagging) Hash() string {
 }
 
 func (d needsLocalTagging) Tag(ctx context.Context, c *cache) error {
-	return c.client.Tag(ctx, d.imageID, d.tag)
+	for _, tag := range d.tags {
+		if err := c.client.Tag(ctx, d.imageID, tag); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Found remotely with wrong tag. Needs retagging
 type needsRemoteTagging struct {
 	hash   string
-	tag    string
+	tags   []string
 	digest string
 }
 
@@ -85,14 +90,19 @@ func (d needsRemoteTagging) Hash() string {
 }
 
 func (d needsRemoteTagging) Tag(ctx context.Context, c *cache) error {
-	fqn := d.tag + "@" + d.digest // Tag is not important. We just need the registry and the digest to locate the image.
-	return docker.AddRemoteTag(fqn, d.tag, c.insecureRegistries)
+	for _, tag := range d.tags {
+		fqn := tag + "@" + d.digest // Tag is not important. We just need the registry and the digest to locate the image.
+		if err := docker.AddRemoteTag(fqn, tag, c.insecureRegistries); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Found locally. Needs pushing
 type needsPushing struct {
 	hash    string
-	tag     string
+	tags    []string
 	imageID string
 }
 
@@ -101,18 +111,20 @@ func (d needsPushing) Hash() string {
 }
 
 func (d needsPushing) Push(ctx context.Context, out io.Writer, c *cache) error {
-	if err := c.client.Tag(ctx, d.imageID, d.tag); err != nil {
-		return err
-	}
+	for _, tag := range d.tags {
+		if err := c.client.Tag(ctx, d.imageID, tag); err != nil {
+			return err
+		}
 
-	digest, err := c.client.Push(ctx, out, d.tag)
-	if err != nil {
-		return err
-	}
+		digest, err := c.client.Push(ctx, out, tag)
+		if err != nil {
+			return err
+		}
 
-	// Update cache
-	e := c.artifactCache[d.hash]
-	e.Digest = digest
-	c.artifactCache[d.hash] = e
+		// Update cache
+		e := c.artifactCache[d.hash]
+		e.Digest = digest
+		c.artifactCache[d.hash] = e
+	}
 	return nil
 }

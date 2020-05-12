@@ -34,14 +34,17 @@ import (
 
 const initContainer = "kaniko-init-container"
 
-func (b *Builder) buildWithKaniko(ctx context.Context, out io.Writer, workspace string, artifact *latest.KanikoArtifact, tag string) (string, error) {
+// Build an image using Kaniko.
+// this will generate a PodSpec for Kaniko, and use the first image provided in a list as an argument to the build.
+// Upon successful builds, it will add all other tags provided to the remote repository.
+func (b *Builder) buildWithKaniko(ctx context.Context, out io.Writer, workspace string, artifact *latest.KanikoArtifact, tags []string) (string, error) {
 	client, err := kubernetes.Client()
 	if err != nil {
 		return "", fmt.Errorf("getting Kubernetes client: %w", err)
 	}
 	pods := client.CoreV1().Pods(b.Namespace)
 
-	podSpec, err := b.kanikoPodSpec(artifact, tag)
+	podSpec, err := b.kanikoPodSpec(artifact, tags[0])
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +75,15 @@ func (b *Builder) buildWithKaniko(ctx context.Context, out io.Writer, workspace 
 
 	waitForLogs()
 
-	return docker.RemoteDigest(tag, b.insecureRegistries)
+	digest, err := docker.RemoteDigest(tags[0], b.insecureRegistries)
+	if err != nil {
+		return digest, err
+	}
+	for _, tag := range tags {
+		// TODO(nkubala): will this just work?
+		docker.AddRemoteTag(digest, tag, b.insecureRegistries)
+	}
+	return digest, nil
 }
 
 // first copy over the buildcontext tarball into the init container tmp dir via kubectl cp

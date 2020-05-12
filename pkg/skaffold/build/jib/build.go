@@ -25,26 +25,58 @@ import (
 )
 
 // Build builds an artifact with Jib.
-func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 	t, err := DeterminePluginType(artifact.Workspace, artifact.JibArtifact)
 	if err != nil {
 		return "", err
 	}
+	var digest string
 
 	switch t {
 	case JibMaven:
 		if b.pushImages {
-			return b.buildJibMavenToRegistry(ctx, out, artifact.Workspace, artifact.JibArtifact, tag)
+			digest, err = b.buildJibMavenToRegistry(ctx, out, artifact.Workspace, artifact.JibArtifact, tags[0])
+			if err != nil {
+				return "", err
+			}
+			return b.tagRemote(ctx, out, digest, tags)
 		}
-		return b.buildJibMavenToDocker(ctx, out, artifact.Workspace, artifact.JibArtifact, tag)
+		digest, err = b.buildJibMavenToDocker(ctx, out, artifact.Workspace, artifact.JibArtifact, tags[0])
+		if err != nil {
+			return "", err
+		}
+		return b.tagLocal(ctx, out, digest, tags)
 
 	case JibGradle:
 		if b.pushImages {
-			return b.buildJibGradleToRegistry(ctx, out, artifact.Workspace, artifact.JibArtifact, tag)
+			digest, err = b.buildJibGradleToRegistry(ctx, out, artifact.Workspace, artifact.JibArtifact, tags[0])
+			if err != nil {
+				return "", err
+			}
+			return b.tagRemote(ctx, out, digest, tags)
 		}
-		return b.buildJibGradleToDocker(ctx, out, artifact.Workspace, artifact.JibArtifact, tag)
+		digest, err = b.buildJibGradleToDocker(ctx, out, artifact.Workspace, artifact.JibArtifact, tags[0])
+		if err != nil {
+			return "", err
+		}
+		return b.tagLocal(ctx, out, digest, tags)
 
 	default:
 		return "", fmt.Errorf("unable to determine Jib builder type for %s", artifact.Workspace)
 	}
+}
+
+func (b *Builder) tagRemote(ctx context.Context, out io.Writer, imageID string, tags []string) (string, error) {
+	// TODO(nkubala): implement
+	return "", nil
+}
+
+func (b *Builder) tagLocal(ctx context.Context, out io.Writer, digest string, tags []string) (string, error) {
+	var err error
+	for _, tag := range tags {
+		if err = b.localDocker.Tag(ctx, digest, tag); err != nil {
+			return "", err
+		}
+	}
+	return "", nil
 }

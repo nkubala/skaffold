@@ -26,18 +26,26 @@ import (
 
 // Build builds an artifact with Cloud Native Buildpacks:
 // https://buildpacks.io/
-func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
-	built, err := b.build(ctx, out, artifact, tag)
+func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
+	built, err := b.build(ctx, out, artifact, tags[0])
 	if err != nil {
 		return "", err
 	}
 
-	if err := b.localDocker.Tag(ctx, built, tag); err != nil {
-		return "", fmt.Errorf("tagging %s->%q: %w", built, tag, err)
-	}
+	var digest string
+	for _, tag := range tags {
+		if err := b.localDocker.Tag(ctx, built, tag); err != nil {
+			return "", fmt.Errorf("tagging %s->%q: %w", built, tag, err)
+		}
 
-	if b.pushImages {
-		return b.localDocker.Push(ctx, out, tag)
+		if b.pushImages {
+			if digest, err = b.localDocker.Push(ctx, out, tag); err != nil {
+				return "", err
+			}
+		}
+		if digest, err = b.localDocker.ImageID(ctx, tag); err != nil {
+			return "", err
+		}
 	}
-	return b.localDocker.ImageID(ctx, tag)
+	return digest, nil
 }

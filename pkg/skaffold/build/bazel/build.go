@@ -32,7 +32,7 @@ import (
 )
 
 // Build builds an artifact with Bazel.
-func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 	a := artifact.ArtifactType.BazelArtifact
 
 	tarPath, err := b.buildTar(ctx, out, artifact.Workspace, a)
@@ -40,10 +40,22 @@ func (b *Builder) Build(ctx context.Context, out io.Writer, artifact *latest.Art
 		return "", err
 	}
 
+	var digest string
 	if b.pushImages {
-		return docker.Push(tarPath, tag, b.insecureRegistries)
+		for _, tag := range tags {
+			if digest, err = docker.Push(tarPath, tag, b.insecureRegistries); err != nil {
+				return "", err
+			}
+		}
+		return digest, nil
 	}
-	return b.loadImage(ctx, out, tarPath, a, tag)
+
+	for _, tag := range tags {
+		if digest, err = b.loadImage(ctx, out, tarPath, a, tag); err != nil {
+			return "", err
+		}
+	}
+	return digest, nil
 }
 
 func (b *Builder) buildTar(ctx context.Context, out io.Writer, workspace string, a *latest.BazelArtifact) (string, error) {

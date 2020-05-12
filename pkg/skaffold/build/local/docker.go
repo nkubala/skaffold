@@ -29,7 +29,9 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/warnings"
 )
 
-func (b *Builder) buildDocker(ctx context.Context, out io.Writer, a *latest.Artifact, tag string) (string, error) {
+// buildDocker builds one image to a list of tags.
+// it will choose the first tag in the list, then use the built image ID to tag the remaining tags.
+func (b *Builder) buildDocker(ctx context.Context, out io.Writer, a *latest.Artifact, tags []string) (string, error) {
 	// Fail fast if the Dockerfile can't be found.
 	dockerfile, err := docker.NormalizeDockerfilePath(a.Workspace, a.DockerArtifact.DockerfilePath)
 	if err != nil {
@@ -46,17 +48,35 @@ func (b *Builder) buildDocker(ctx context.Context, out io.Writer, a *latest.Arti
 	var imageID string
 
 	if b.cfg.UseDockerCLI || b.cfg.UseBuildkit {
-		imageID, err = b.dockerCLIBuild(ctx, out, a.Workspace, a.ArtifactType.DockerArtifact, tag)
+		imageID, err = b.dockerCLIBuild(ctx, out, a.Workspace, a.ArtifactType.DockerArtifact, tags[0])
 	} else {
-		imageID, err = b.localDocker.Build(ctx, out, a.Workspace, a.ArtifactType.DockerArtifact, tag)
+		imageID, err = b.localDocker.Build(ctx, out, a.Workspace, a.ArtifactType.DockerArtifact, tags[0])
 	}
 
 	if err != nil {
 		return "", err
 	}
 
+	for _, tag := range tags {
+		if b.cfg.UseDockerCLI || b.cfg.UseBuildkit {
+			if err = b.dockerCLITag(ctx, out, imageID, tag); err != nil {
+				return "", err
+			}
+		} else {
+			if err = b.localDocker.Tag(ctx, imageID, tag); err != nil {
+				return "", err
+			}
+		}
+	}
+
+	var digest string
 	if b.pushImages {
-		return b.localDocker.Push(ctx, out, tag)
+		for _, tag := range tags {
+			if digest, err = b.localDocker.Push(ctx, out, tag); err != nil {
+				return "", err
+			}
+		}
+		return digest, nil
 	}
 
 	return imageID, nil
@@ -96,6 +116,21 @@ func (b *Builder) dockerCLIBuild(ctx context.Context, out io.Writer, workspace s
 	}
 
 	return b.localDocker.ImageID(ctx, tag)
+}
+
+func (b *Builder) dockerCLITag(ctx context.Context, out io.Writer, imageID, tag string) error {
+	cmd := exec.CommandContext(ctx, "docker", "tag", imageID, tag)
+	cmd.Env = append(util.OSEnviron(), b.retrieveExtraEnv()...)
+	if b.cfg.UseBuildkit {
+		cmd.Env = append(cmd.Env, "DOCKER_BUILDKIT=1")
+	}
+	cmd.Stdout = out
+	cmd.Stderr = out
+
+	if err := util.RunCmd(cmd); err != nil {
+		return fmt.Errorf("tagging image: %w", err)
+	}
+	return nil
 }
 
 func (b *Builder) pullCacheFromImages(ctx context.Context, out io.Writer, a *latest.DockerArtifact) error {

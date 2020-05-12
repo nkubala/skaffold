@@ -68,9 +68,9 @@ func (c *cache) lookupLocal(ctx context.Context, hash string, tags []string, ent
 
 	var idForTag string
 	var err error
-	for _, t := range tags {
+	for _, tag := range tags {
 		// Check the imageID for the tag
-		idForTag, err := c.client.ImageID(ctx, tag)
+		idForTag, err = c.client.ImageID(ctx, tag)
 		if err != nil {
 			return failed{err: fmt.Errorf("getting imageID for %s: %v", tag, err)}
 		}
@@ -83,31 +83,41 @@ func (c *cache) lookupLocal(ctx context.Context, hash string, tags []string, ent
 
 	// Image exists locally with a different tag
 	if c.client.ImageExists(ctx, entry.ID) {
-		return needsLocalTagging{hash: hash, tag: tag, imageID: entry.ID}
+		return needsLocalTagging{hash: hash, tags: tags, imageID: entry.ID}
 	}
 
 	return needsBuilding{hash: hash}
 }
 
-func (c *cache) lookupRemote(ctx context.Context, hash, tags []string, entry ImageDetails) cacheDetails {
-	if remoteDigest, err := docker.RemoteDigest(tag, c.insecureRegistries); err == nil {
-		// Image exists remotely with the same tag and digest
-		if remoteDigest == entry.Digest {
-			return found{hash: hash}
+func (c *cache) lookupRemote(ctx context.Context, hash string, tags []string, entry ImageDetails) cacheDetails {
+	var missingTags []string
+	for _, tag := range tags {
+		if remoteDigest, err := docker.RemoteDigest(tag, c.insecureRegistries); err == nil {
+			// Image does not exist remotely with the same tag and digest
+			if remoteDigest != entry.Digest {
+				// return found{hash: hash}
+				missingTags = append(missingTags, tag)
+			}
 		}
 	}
 
-	// Image exists remotely with a different tag
-	fqn := tag + "@" + entry.Digest // Actual tag will be ignored but we need the registry and the digest part of it.
-	if remoteDigest, err := docker.RemoteDigest(fqn, c.insecureRegistries); err == nil {
-		if remoteDigest == entry.Digest {
-			return needsRemoteTagging{hash: hash, tag: tag, digest: entry.Digest}
-		}
-	}
+	// TODO1(nkubala): is this second computed digest the same as the first? if so we should just use that
 
-	// Image exists locally
-	if entry.ID != "" && c.client != nil && c.client.ImageExists(ctx, entry.ID) {
-		return needsPushing{hash: hash, tag: tag, imageID: entry.ID}
+	// TODO2(nkubala): also, do we need to loop through missing tags here? or just `if len(tags) > 0`
+	// for _, tag := range missingTags {
+	if len(missingTags) > 0 {
+		// Image exists remotely with a different tag
+		fqn := tags[0] + "@" + entry.Digest // Actual tag will be ignored but we need the registry and the digest part of it.
+		if remoteDigest, err := docker.RemoteDigest(fqn, c.insecureRegistries); err == nil {
+			if remoteDigest == entry.Digest {
+				return needsRemoteTagging{hash: hash, tags: tags, digest: entry.Digest}
+			}
+		}
+
+		// Image exists locally
+		if entry.ID != "" && c.client != nil && c.client.ImageExists(ctx, entry.ID) {
+			return needsPushing{hash: hash, tags: tags, imageID: entry.ID}
+		}
 	}
 
 	return needsBuilding{hash: hash}
