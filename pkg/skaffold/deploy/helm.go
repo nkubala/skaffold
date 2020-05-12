@@ -128,8 +128,8 @@ func (h *HelmDeployer) Deploy(ctx context.Context, out io.Writer, builds []build
 	// Let's make sure that every image tag is set with `--set`.
 	// Otherwise, templates have no way to use the images that were built.
 	for _, build := range builds {
-		if !valuesSet[build.Tag] {
-			warnings.Printf("image [%s] is not used.", build.Tag)
+		if !valuesSet[build.DeployTag] {
+			warnings.Printf("image [%s] is not used.", build.DeployTag)
 			warnings.Printf("image [%s] is used instead.", build.ImageName)
 			warnings.Printf("See helm sample for how to replace image names with their actual tags: https://github.com/GoogleContainerTools/skaffold/blob/master/examples/helm-deployment/skaffold.yaml")
 		}
@@ -414,12 +414,12 @@ func installArgs(r latest.HelmRelease, builds []build.Artifact, valuesSet map[st
 
 		cfg := r.ImageStrategy.HelmImageConfig.HelmConventionConfig
 
-		value, err = imageSetFromConfig(cfg, k, v.Tag)
+		value, err = imageSetFromConfig(cfg, k, v.DeployTag)
 		if err != nil {
 			return nil, err
 		}
 
-		valuesSet[v.Tag] = true
+		valuesSet[v.DeployTag] = true
 		args = append(args, "--set-string", value)
 	}
 
@@ -445,7 +445,7 @@ func installArgs(r latest.HelmRelease, builds []build.Artifact, valuesSet map[st
 			suffix = strconv.Itoa(idx + 1)
 		}
 
-		for k, v := range envVarForImage(b.ImageName, b.Tag) {
+		for k, v := range envVarForImage(b.ImageName, b.DeployTag) {
 			envMap[k+suffix] = v
 		}
 	}

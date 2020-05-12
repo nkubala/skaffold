@@ -86,7 +86,7 @@ func applyDebuggingTransforms(l kubectl.ManifestList, retriever configurationRet
 // findArtifact finds the corresponding artifact for the given image
 func findArtifact(image string, builds []build.Artifact) *build.Artifact {
 	for _, artifact := range builds {
-		if image == artifact.ImageName || image == artifact.Tag {
+		if image == artifact.ImageName || image == artifact.DeployTag {
 			logrus.Debugf("Found artifact for image %q", image)
 			return &artifact
 		}
@@ -106,14 +106,14 @@ func retrieveImageConfiguration(ctx context.Context, artifact *build.Artifact, i
 	}
 
 	// the apiClient will go to the remote registry if local docker daemon is not available
-	manifest, err := apiClient.ConfigFile(ctx, artifact.Tag)
+	manifest, err := apiClient.ConfigFile(ctx, artifact.DeployTag)
 	if err != nil {
-		logrus.Debugf("Error retrieving image manifest for %v: %v", artifact.Tag, err)
-		return imageConfiguration{}, fmt.Errorf("retrieving image config for %q: %w", artifact.Tag, err)
+		logrus.Debugf("Error retrieving image manifest for %v: %v", artifact.DeployTag, err)
+		return imageConfiguration{}, fmt.Errorf("retrieving image config for %q: %w", artifact.DeployTag, err)
 	}
 
 	config := manifest.Config
-	logrus.Debugf("Retrieved local image configuration for %v: %v", artifact.Tag, config)
+	logrus.Debugf("Retrieved local image configuration for %v: %v", artifact.DeployTag, config)
 	return imageConfiguration{
 		artifact:   artifact.ImageName,
 		env:        envAsMap(config.Env),

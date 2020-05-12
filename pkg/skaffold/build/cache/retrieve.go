@@ -31,7 +31,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest"
 )
 
-func (c *cache) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, artifacts []*latest.Artifact, buildAndTest BuildAndTestFn) ([]build.Artifact, error) {
+func (c *cache) Build(ctx context.Context, out io.Writer, tagMap tag.ImageTags, artifacts []*latest.Artifact, buildAndTest BuildAndTestFn) ([]build.Artifact, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -40,7 +40,7 @@ func (c *cache) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, ar
 	color.Default.Fprintln(out, "Checking cache...")
 
 	lookup := make(chan []cacheDetails)
-	go func() { lookup <- c.lookupArtifacts(ctx, tags, artifacts) }()
+	go func() { lookup <- c.lookupArtifacts(ctx, tagMap, artifacts) }()
 
 	var results []cacheDetails
 	select {
@@ -89,28 +89,29 @@ func (c *cache) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, ar
 
 		// Image is already built
 		entry := c.artifactCache[result.Hash()]
-		tag := tags[artifact.ImageName]
+		tags := tagMap[artifact.ImageName]
 
 		var uniqueTag string
 		if c.imagesAreLocal {
 			var err error
-			uniqueTag, err = build.TagWithImageID(ctx, tag, entry.ID, c.client)
+			uniqueTag, err = build.TagWithImageID(ctx, tags[0], entry.ID, c.client)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			uniqueTag = build.TagWithDigest(tag, entry.Digest)
+			uniqueTag = build.TagWithDigest(tags[0], entry.Digest)
 		}
 
 		alreadyBuilt = append(alreadyBuilt, build.Artifact{
 			ImageName: artifact.ImageName,
-			Tag:       uniqueTag,
+			DeployTag: uniqueTag,
+			Tags:      tags,
 		})
 	}
 
 	logrus.Infoln("Cache check complete in", time.Since(start))
 
-	bRes, err := buildAndTest(ctx, out, tags, needToBuild)
+	bRes, err := buildAndTest(ctx, out, tagMap, needToBuild)
 	if err != nil {
 		return nil, err
 	}

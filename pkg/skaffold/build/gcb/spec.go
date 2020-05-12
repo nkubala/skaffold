@@ -25,9 +25,9 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest"
 )
 
-func (b *Builder) buildSpec(artifact *latest.Artifact, tag, bucket, object string) (cloudbuild.Build, error) {
+func (b *Builder) buildSpec(artifact *latest.Artifact, tags []string, bucket, object string) (cloudbuild.Build, error) {
 	// Artifact specific build spec
-	buildSpec, err := b.buildSpecForArtifact(artifact, tag)
+	buildSpec, err := b.buildSpecForArtifact(artifact, tags)
 	if err != nil {
 		return buildSpec, err
 	}
@@ -52,7 +52,7 @@ func (b *Builder) buildSpec(artifact *latest.Artifact, tag, bucket, object strin
 	return buildSpec, nil
 }
 
-func (b *Builder) buildSpecForArtifact(artifact *latest.Artifact, tag string) (cloudbuild.Build, error) {
+func (b *Builder) buildSpecForArtifact(artifact *latest.Artifact, tags []string) (cloudbuild.Build, error) {
 	switch {
 	case artifact.KanikoArtifact != nil:
 		return b.kanikoBuildSpec(artifact.KanikoArtifact, tag)

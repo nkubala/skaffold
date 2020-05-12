@@ -51,7 +51,8 @@ func InSequence(ctx context.Context, out io.Writer, tags tag.ImageTags, artifact
 
 		builds = append(builds, Artifact{
 			ImageName: artifact.ImageName,
-			Tag:       finalTag,
+			DeployTag: finalTag,
+			Tags:      tags[artifact.ImageName],
 		})
 	}
 

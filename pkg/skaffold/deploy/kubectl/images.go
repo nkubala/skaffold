@@ -53,7 +53,7 @@ func (is *imageSaver) Visit(o map[interface{}]interface{}, k interface{}, v inte
 	}
 
 	is.Images = append(is.Images, build.Artifact{
-		Tag:       image,
+		DeployTag: image,
 		ImageName: parsed.BaseName,
 	})
 	return false
@@ -82,7 +82,7 @@ type imageReplacer struct {
 func newImageReplacer(builds []build.Artifact) *imageReplacer {
 	tagsByImageName := make(map[string]string)
 	for _, build := range builds {
-		tagsByImageName[build.ImageName] = build.Tag
+		tagsByImageName[build.ImageName] = build.DeployTag
 	}
 
 	return &imageReplacer{

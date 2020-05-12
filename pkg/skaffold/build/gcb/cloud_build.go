@@ -49,7 +49,7 @@ func (b *Builder) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, 
 	return build.InParallel(ctx, out, tags, artifacts, b.buildArtifactWithCloudBuild, b.GoogleCloudBuild.Concurrency)
 }
 
-func (b *Builder) buildArtifactWithCloudBuild(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+func (b *Builder) buildArtifactWithCloudBuild(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 	cbclient, err := cloudbuild.NewService(ctx, gcp.ClientOptions()...)
 	if err != nil {
 		return "", fmt.Errorf("getting cloudbuild client: %w", err)
@@ -62,8 +62,9 @@ func (b *Builder) buildArtifactWithCloudBuild(ctx context.Context, out io.Writer
 	defer c.Close()
 
 	projectID := b.ProjectID
+	// TODO(nkubala): we could maybe loop through tags here
 	if projectID == "" {
-		guessedProjectID, err := gcp.ExtractProjectID(tag)
+		guessedProjectID, err := gcp.ExtractProjectID(tags[0])
 		if err != nil {
 			return "", fmt.Errorf("extracting projectID from image name: %w", err)
 		}
@@ -103,7 +104,7 @@ func (b *Builder) buildArtifactWithCloudBuild(ctx context.Context, out io.Writer
 		return "", fmt.Errorf("uploading source tarball: %w", err)
 	}
 
-	buildSpec, err := b.buildSpec(artifact, tag, cbBucket, buildObject)
+	buildSpec, err := b.buildSpec(artifact, tags, cbBucket, buildObject)
 	if err != nil {
 		return "", fmt.Errorf("could not create build description: %w", err)
 	}
