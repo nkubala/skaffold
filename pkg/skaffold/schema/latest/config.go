@@ -606,7 +606,7 @@ type Artifact struct {
 	// TagPolicy *beta* determines how images are tagged.
 	// A few strategies are provided here, although you most likely won't need to care!
 	// If not specified, it defaults to `gitCommit: {variant: Tags}`.
-	Tags []TagPolicy `yaml:"tagPolicy,omitempty"`
+	Tags []TagPolicy `yaml:"tags,omitempty"`
 }
 
 // Sync *beta* specifies what files to sync into the container.

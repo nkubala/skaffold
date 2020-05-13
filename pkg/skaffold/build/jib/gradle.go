@@ -43,7 +43,7 @@ const MinimumJibGradleVersionForSync = "2.0.0"
 var GradleCommand = util.CommandWrapper{Executable: "gradle", Wrapper: "gradlew"}
 
 func (b *Builder) buildJibGradleToDocker(ctx context.Context, out io.Writer, workspace string, artifact *latest.JibArtifact, tag string) (string, error) {
-	args := GenerateGradleBuildArgs("jibDockerBuild", tag, artifact, b.skipTests, b.insecureRegistries)
+	args := GenerateGradleBuildArgs("jibDockerBuild", []string{tag}, artifact, b.skipTests, b.insecureRegistries)
 	if err := b.runGradleCommand(ctx, out, workspace, args); err != nil {
 		return "", err
 	}
@@ -52,7 +52,7 @@ func (b *Builder) buildJibGradleToDocker(ctx context.Context, out io.Writer, wor
 }
 
 func (b *Builder) buildJibGradleToRegistry(ctx context.Context, out io.Writer, workspace string, artifact *latest.JibArtifact, tag string) (string, error) {
-	args := GenerateGradleBuildArgs("jib", tag, artifact, b.skipTests, b.insecureRegistries)
+	args := GenerateGradleBuildArgs("jib", []string{tag}, artifact, b.skipTests, b.insecureRegistries)
 	if err := b.runGradleCommand(ctx, out, workspace, args); err != nil {
 		return "", err
 	}
@@ -97,14 +97,21 @@ func getSyncMapCommandGradle(ctx context.Context, workspace string, a *latest.Ji
 }
 
 // GenerateGradleBuildArgs generates the arguments to Gradle for building the project as an image.
-func GenerateGradleBuildArgs(task string, imageName string, a *latest.JibArtifact, skipTests bool, insecureRegistries map[string]bool) []string {
+func GenerateGradleBuildArgs(task string, images []string, a *latest.JibArtifact, skipTests bool, insecureRegistries map[string]bool) []string {
 	args := gradleBuildArgsFunc(task, a, skipTests, true, MinimumJibGradleVersion)
-	if insecure, err := isOnInsecureRegistry(imageName, insecureRegistries); err == nil && insecure {
-		// jib doesn't support marking specific registries as insecure
-		args = append(args, "-Djib.allowInsecureRegistries=true")
+
+	insecure := false
+	for _, image := range images {
+		args = append(args, "--image="+image)
+		if insecure, err := isOnInsecureRegistry(image, insecureRegistries); err == nil && insecure {
+			// jib doesn't support marking specific registries as insecure
+			insecure = true
+		}
 	}
 
-	args = append(args, "--image="+imageName)
+	if insecure {
+		args = append(args, "-Djib.allowInsecureRegistries=true")
+	}
 	return args
 }
 

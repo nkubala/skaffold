@@ -101,7 +101,7 @@ func (t FullTester) runStructureTests(ctx context.Context, out io.Writer, bRes [
 func resolveArtifactImageTag(imageName string, bRes []build.Artifact) string {
 	for _, res := range bRes {
 		if imageName == res.ImageName {
-			return res.Tag
+			return res.DeployTag
 		}
 	}
 

@@ -29,7 +29,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 )
 
-func (b *Builder) jibBuildSpec(artifact *latest.Artifact, tag string) (cloudbuild.Build, error) {
+func (b *Builder) jibBuildSpec(artifact *latest.Artifact, tags []string) (cloudbuild.Build, error) {
 	t, err := jib.DeterminePluginType(artifact.Workspace, artifact.JibArtifact)
 	if err != nil {
 		return cloudbuild.Build{}, err
@@ -41,7 +41,7 @@ func (b *Builder) jibBuildSpec(artifact *latest.Artifact, tag string) (cloudbuil
 			Steps: []*cloudbuild.BuildStep{{
 				Name:       b.MavenImage,
 				Entrypoint: "sh",
-				Args:       fixHome("mvn", jib.GenerateMavenBuildArgs("build", tag, artifact.JibArtifact, b.skipTests, b.insecureRegistries)),
+				Args:       fixHome("mvn", jib.GenerateMavenBuildArgs("build", tags, artifact.JibArtifact, b.skipTests, b.insecureRegistries)),
 			}},
 		}, nil
 	case jib.JibGradle:
@@ -49,7 +49,7 @@ func (b *Builder) jibBuildSpec(artifact *latest.Artifact, tag string) (cloudbuil
 			Steps: []*cloudbuild.BuildStep{{
 				Name:       b.GradleImage,
 				Entrypoint: "sh",
-				Args:       fixHome("gradle", jib.GenerateGradleBuildArgs("jib", tag, artifact.JibArtifact, b.skipTests, b.insecureRegistries)),
+				Args:       fixHome("gradle", jib.GenerateGradleBuildArgs("jib", tags, artifact.JibArtifact, b.skipTests, b.insecureRegistries)),
 			}},
 		}, nil
 	default:

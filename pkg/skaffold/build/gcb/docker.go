@@ -26,8 +26,8 @@ import (
 )
 
 // dockerBuildSpec lists the build steps required to build a docker image.
-func (b *Builder) dockerBuildSpec(artifact *latest.DockerArtifact, tag string) (cloudbuild.Build, error) {
-	args, err := b.dockerBuildArgs(artifact, tag)
+func (b *Builder) dockerBuildSpec(artifact *latest.DockerArtifact, tags []string) (cloudbuild.Build, error) {
+	args, err := b.dockerBuildArgs(artifact, tags)
 	if err != nil {
 		return cloudbuild.Build{}, err
 	}
@@ -40,7 +40,7 @@ func (b *Builder) dockerBuildSpec(artifact *latest.DockerArtifact, tag string) (
 
 	return cloudbuild.Build{
 		Steps:  steps,
-		Images: []string{tag},
+		Images: tags,
 	}, nil
 }
 
@@ -60,13 +60,16 @@ func (b *Builder) cacheFromSteps(artifact *latest.DockerArtifact) []*cloudbuild.
 }
 
 // dockerBuildArgs lists the arguments passed to `docker` to build a given image.
-func (b *Builder) dockerBuildArgs(artifact *latest.DockerArtifact, tag string) ([]string, error) {
+func (b *Builder) dockerBuildArgs(artifact *latest.DockerArtifact, tags []string) ([]string, error) {
 	ba, err := docker.GetBuildArgs(artifact)
 	if err != nil {
 		return nil, fmt.Errorf("getting docker build args: %w", err)
 	}
 
-	args := []string{"build", "--tag", tag, "-f", artifact.DockerfilePath}
+	args := []string{"build", "-f", artifact.DockerfilePath}
+	for _, tag := range tags {
+		args = append(args, "-t", tag)
+	}
 	args = append(args, ba...)
 	args = append(args, ".")
 

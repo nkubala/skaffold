@@ -43,7 +43,7 @@ const MinimumJibMavenVersionForSync = "2.0.0"
 var MavenCommand = util.CommandWrapper{Executable: "mvn", Wrapper: "mvnw"}
 
 func (b *Builder) buildJibMavenToDocker(ctx context.Context, out io.Writer, workspace string, artifact *latest.JibArtifact, tag string) (string, error) {
-	args := GenerateMavenBuildArgs("dockerBuild", tag, artifact, b.skipTests, b.insecureRegistries)
+	args := GenerateMavenBuildArgs("dockerBuild", []string{tag}, artifact, b.skipTests, b.insecureRegistries)
 	if err := b.runMavenCommand(ctx, out, workspace, args); err != nil {
 		return "", err
 	}
@@ -52,7 +52,7 @@ func (b *Builder) buildJibMavenToDocker(ctx context.Context, out io.Writer, work
 }
 
 func (b *Builder) buildJibMavenToRegistry(ctx context.Context, out io.Writer, workspace string, artifact *latest.JibArtifact, tag string) (string, error) {
-	args := GenerateMavenBuildArgs("build", tag, artifact, b.skipTests, b.insecureRegistries)
+	args := GenerateMavenBuildArgs("build", []string{tag}, artifact, b.skipTests, b.insecureRegistries)
 	if err := b.runMavenCommand(ctx, out, workspace, args); err != nil {
 		return "", err
 	}
@@ -98,13 +98,21 @@ func getSyncMapCommandMaven(ctx context.Context, workspace string, a *latest.Jib
 }
 
 // GenerateMavenBuildArgs generates the arguments to Maven for building the project as an image.
-func GenerateMavenBuildArgs(goal string, imageName string, a *latest.JibArtifact, skipTests bool, insecureRegistries map[string]bool) []string {
+func GenerateMavenBuildArgs(goal string, images []string, a *latest.JibArtifact, skipTests bool, insecureRegistries map[string]bool) []string {
 	args := mavenBuildArgsFunc(goal, a, skipTests, true, MinimumJibMavenVersion)
-	if insecure, err := isOnInsecureRegistry(imageName, insecureRegistries); err == nil && insecure {
-		// jib doesn't support marking specific registries as insecure
+
+	insecure := false
+	for _, image := range images {
+		args = append(args, "-Dimage="+image)
+		if insecure, err := isOnInsecureRegistry(image, insecureRegistries); err == nil && insecure {
+			// jib doesn't support marking specific registries as insecure
+			insecure = true
+		}
+	}
+
+	if insecure {
 		args = append(args, "-Djib.allowInsecureRegistries=true")
 	}
-	args = append(args, "-Dimage="+imageName)
 
 	return args
 }

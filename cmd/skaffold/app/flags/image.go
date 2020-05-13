@@ -95,6 +95,7 @@ func convertImageToArtifact(value string) (*build.Artifact, error) {
 	}
 	return &build.Artifact{
 		ImageName: parsed.BaseName,
-		Tag:       value,
+		DeployTag: value,
+		Tags:      []string{value},
 	}, nil
 }

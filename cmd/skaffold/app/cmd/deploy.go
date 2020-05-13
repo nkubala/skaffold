@@ -60,12 +60,12 @@ func doDeploy(ctx context.Context, out io.Writer) error {
 		}
 
 		for i := range deployed {
-			tag, err := r.ApplyDefaultRepo(deployed[i].Tag)
+			tag, err := r.ApplyDefaultRepo(deployed[i].DeployTag)
 			if err != nil {
 				return err
 			}
 
-			deployed[i].Tag = tag
+			deployed[i].DeployTag = tag
 		}
 
 		return r.DeployAndLog(ctx, out, deployed)
@@ -86,7 +86,7 @@ func getArtifactsToDeploy(out io.Writer, fromFile, fromCLI []build.Artifact, art
 
 	// Check that every image has a non empty tag
 	for _, d := range deployed {
-		if d.Tag == "" {
+		if d.DeployTag == "" {
 			tips.PrintUseRunVsDeploy(out)
 			return nil, fmt.Errorf("no tag provided for image [%s]", d.ImageName)
 		}

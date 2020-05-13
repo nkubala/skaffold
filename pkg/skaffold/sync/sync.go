@@ -192,7 +192,7 @@ func autoSyncItem(ctx context.Context, a *latest.Artifact, tag string, e filemon
 func latestTag(image string, builds []build.Artifact) string {
 	for _, build := range builds {
 		if build.ImageName == image {
-			return build.Tag
+			return build.DeployTag
 		}
 	}
 	return ""

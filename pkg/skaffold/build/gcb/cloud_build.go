@@ -50,6 +50,7 @@ func (b *Builder) Build(ctx context.Context, out io.Writer, tags tag.ImageTags, 
 }
 
 func (b *Builder) buildArtifactWithCloudBuild(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
+	deployTag := tags[0]
 	cbclient, err := cloudbuild.NewService(ctx, gcp.ClientOptions()...)
 	if err != nil {
 		return "", fmt.Errorf("getting cloudbuild client: %w", err)
@@ -64,7 +65,7 @@ func (b *Builder) buildArtifactWithCloudBuild(ctx context.Context, out io.Writer
 	projectID := b.ProjectID
 	// TODO(nkubala): we could maybe loop through tags here
 	if projectID == "" {
-		guessedProjectID, err := gcp.ExtractProjectID(tags[0])
+		guessedProjectID, err := gcp.ExtractProjectID(deployTag)
 		if err != nil {
 			return "", fmt.Errorf("extracting projectID from image name: %w", err)
 		}
@@ -166,7 +167,7 @@ watch:
 		switch cb.Status {
 		case StatusQueued, StatusWorking, StatusUnknown:
 		case StatusSuccess:
-			digest, err = getDigest(cb, tag)
+			digest, err = getDigest(cb, deployTag)
 			if err != nil {
 				return "", fmt.Errorf("getting image id from finished build: %w", err)
 			}
@@ -185,7 +186,7 @@ watch:
 	}
 	logrus.Infof("Deleted object %s", buildObject)
 
-	return build.TagWithDigest(tag, digest), nil
+	return build.TagWithDigest(deployTag, digest), nil
 }
 
 func getBuildID(op *cloudbuild.Operation) (string, error) {

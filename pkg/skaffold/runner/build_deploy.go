@@ -172,6 +172,9 @@ func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts
 
 		i := i
 		for j, tagger := range taggers {
+			tagger := tagger
+			j := j
+			tagErrs[i][j] = make(chan tagErr, 1)
 			go func() {
 				tag, err := tagger.GenerateFullyQualifiedImageName(artifacts[i].Workspace, artifacts[i].ImageName)
 				tagErrs[i][j] <- tagErr{tag: tag, err: err}
@@ -184,8 +187,8 @@ func (r *SkaffoldRunner) imageTags(ctx context.Context, out io.Writer, artifacts
 
 	for i, artifact := range artifacts {
 		imageName := artifact.ImageName
-		color.Default.Fprintf(out, " - %s -> ", imageName)
 		for j, _ := range r.tagMap[artifact.ImageName] {
+			color.Default.Fprintf(out, " - %s -> ", imageName)
 			select {
 			case <-ctx.Done():
 				return nil, context.Canceled

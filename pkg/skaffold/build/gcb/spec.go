@@ -55,13 +55,13 @@ func (b *Builder) buildSpec(artifact *latest.Artifact, tags []string, bucket, ob
 func (b *Builder) buildSpecForArtifact(artifact *latest.Artifact, tags []string) (cloudbuild.Build, error) {
 	switch {
 	case artifact.KanikoArtifact != nil:
-		return b.kanikoBuildSpec(artifact.KanikoArtifact, tag)
+		return b.kanikoBuildSpec(artifact.KanikoArtifact, tags)
 
 	case artifact.DockerArtifact != nil:
-		return b.dockerBuildSpec(artifact.DockerArtifact, tag)
+		return b.dockerBuildSpec(artifact.DockerArtifact, tags)
 
 	case artifact.JibArtifact != nil:
-		return b.jibBuildSpec(artifact, tag)
+		return b.jibBuildSpec(artifact, tags)
 
 	case artifact.BazelArtifact != nil:
 		return cloudbuild.Build{}, errors.New("skaffold can't build a bazel artifact with Google Cloud Build")
@@ -70,7 +70,7 @@ func (b *Builder) buildSpecForArtifact(artifact *latest.Artifact, tags []string)
 		return cloudbuild.Build{}, errors.New("skaffold can't build a custom artifact with Google Cloud Build")
 
 	case artifact.BuildpackArtifact != nil:
-		return b.buildpackBuildSpec(artifact.BuildpackArtifact, tag)
+		return b.buildpackBuildSpec(artifact.BuildpackArtifact, tags)
 
 	default:
 		return cloudbuild.Build{}, fmt.Errorf("undefined artifact type: %+v", artifact.ArtifactType)

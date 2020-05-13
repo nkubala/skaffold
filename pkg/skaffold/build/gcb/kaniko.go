@@ -26,15 +26,17 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest"
 )
 
-func (b *Builder) kanikoBuildSpec(artifact *latest.KanikoArtifact, tag string) (cloudbuild.Build, error) {
+func (b *Builder) kanikoBuildSpec(artifact *latest.KanikoArtifact, tags []string) (cloudbuild.Build, error) {
 	buildArgs, err := b.kanikoBuildArgs(artifact)
 	if err != nil {
 		return cloudbuild.Build{}, err
 	}
 
 	kanikoArgs := []string{
-		"--destination", tag,
 		"--dockerfile", artifact.DockerfilePath,
+	}
+	for _, tag := range tags {
+		kanikoArgs = append(kanikoArgs, "--destination", tag)
 	}
 	kanikoArgs = append(kanikoArgs, buildArgs...)
 

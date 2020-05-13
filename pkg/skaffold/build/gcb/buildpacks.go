@@ -25,31 +25,35 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest"
 )
 
-func (b *Builder) buildpackBuildSpec(artifact *latest.BuildpackArtifact, tag string) (cloudbuild.Build, error) {
-	args := []string{"pack", "build", tag, "--builder", artifact.Builder}
+func (b *Builder) buildpackBuildSpec(artifact *latest.BuildpackArtifact, tags []string) (cloudbuild.Build, error) {
+	var steps []*cloudbuild.BuildStep
+	for _, tag := range tags {
+		args := []string{"pack", "build", tag, "--builder", artifact.Builder}
 
-	if artifact.RunImage != "" {
-		args = append(args, "--run-image", artifact.RunImage)
-	}
+		if artifact.RunImage != "" {
+			args = append(args, "--run-image", artifact.RunImage)
+		}
 
-	for _, buildpack := range artifact.Buildpacks {
-		args = append(args, "--buildpack", buildpack)
-	}
+		for _, buildpack := range artifact.Buildpacks {
+			args = append(args, "--buildpack", buildpack)
+		}
 
-	env, err := misc.EvaluateEnv(artifact.Env)
-	if err != nil {
-		return cloudbuild.Build{}, fmt.Errorf("unable to evaluate env variables: %w", err)
-	}
+		env, err := misc.EvaluateEnv(artifact.Env)
+		if err != nil {
+			return cloudbuild.Build{}, fmt.Errorf("unable to evaluate env variables: %w", err)
+		}
 
-	for _, kv := range env {
-		args = append(args, "--env", kv)
+		for _, kv := range env {
+			args = append(args, "--env", kv)
+		}
+		steps = append(steps, &cloudbuild.BuildStep{
+			Name: b.PackImage,
+			Args: args,
+		})
 	}
 
 	return cloudbuild.Build{
-		Steps: []*cloudbuild.BuildStep{{
-			Name: b.PackImage,
-			Args: args,
-		}},
-		Images: []string{tag},
+		Steps:  steps,
+		Images: tags,
 	}, nil
 }
