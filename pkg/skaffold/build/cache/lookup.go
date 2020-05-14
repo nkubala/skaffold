@@ -24,6 +24,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/build/tag"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest"
+	"github.com/sirupsen/logrus"
 )
 
 func (c *cache) lookupArtifacts(ctx context.Context, tags tag.ImageTags, artifacts []*latest.Artifact) []cacheDetails {
@@ -92,9 +93,11 @@ func (c *cache) lookupLocal(ctx context.Context, hash string, tags []string, ent
 func (c *cache) lookupRemote(ctx context.Context, hash string, tags []string, entry ImageDetails) cacheDetails {
 	var missingTags []string
 	for _, tag := range tags {
+		logrus.Infof("checking for tag %s in remote cache", tag)
 		if remoteDigest, err := docker.RemoteDigest(tag, c.insecureRegistries); err == nil {
 			// Image does not exist remotely with the same tag and digest
 			if remoteDigest != entry.Digest {
+				logrus.Infof("tag %s not found remotely", tag)
 				// return found{hash: hash}
 				missingTags = append(missingTags, tag)
 			}
@@ -105,6 +108,7 @@ func (c *cache) lookupRemote(ctx context.Context, hash string, tags []string, en
 
 	// TODO2(nkubala): also, do we need to loop through missing tags here? or just `if len(tags) > 0`
 	// for _, tag := range missingTags {
+	logrus.Infof("missing tags: %v", missingTags)
 	if len(missingTags) > 0 {
 		// Image exists remotely with a different tag
 		fqn := tags[0] + "@" + entry.Digest // Actual tag will be ignored but we need the registry and the digest part of it.
@@ -116,6 +120,7 @@ func (c *cache) lookupRemote(ctx context.Context, hash string, tags []string, en
 
 		// Image exists locally
 		if entry.ID != "" && c.client != nil && c.client.ImageExists(ctx, entry.ID) {
+			logrus.Infof("image %s found locally, going to push", fqn)
 			return needsPushing{hash: hash, tags: tags, imageID: entry.ID}
 		}
 	}

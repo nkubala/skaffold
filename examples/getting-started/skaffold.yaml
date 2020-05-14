@@ -2,10 +2,11 @@ apiVersion: skaffold/v2beta4
 kind: Config
 build:
   artifacts:
-  - image: skaffold-example
+  - image: skaffold-multi-tag
     tags:
-    - gitTagger: {}
+    - gitCommit: {}
     - sha256: {}
+    - dateTime: {}
 deploy:
   kubectl:
     manifests:

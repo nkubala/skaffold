@@ -43,24 +43,24 @@ func TestGetBuild(t *testing.T) {
 	}{
 		{
 			description: "build succeeds",
-			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 				out.Write([]byte("build succeeds"))
-				return fmt.Sprintf("%s@sha256:abac", tag), nil
+				return fmt.Sprintf("%s@sha256:abac", tags[0]), nil
 			},
 			tags: tag.ImageTags{
-				"skaffold/image1": "skaffold/image1:v0.0.1",
-				"skaffold/image2": "skaffold/image2:v0.0.2",
+				"skaffold/image1": {"skaffold/image1:v0.0.1"},
+				"skaffold/image2": {"skaffold/image2:v0.0.2"},
 			},
 			expectedTag: "skaffold/image1:v0.0.1@sha256:abac",
 			expectedOut: "Building [skaffold/image1]...\nbuild succeeds",
 		},
 		{
 			description: "build fails",
-			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 				return "", fmt.Errorf("build fails")
 			},
 			tags: tag.ImageTags{
-				"skaffold/image1": "",
+				"skaffold/image1": {""},
 			},
 			expectedOut: "Building [skaffold/image1]...\n",
 			shouldErr:   true,
@@ -100,17 +100,19 @@ func TestCollectResults(t *testing.T) {
 				{ImageName: "skaffold/image2"},
 			},
 			expected: []Artifact{
-				{ImageName: "skaffold/image1", Tag: "skaffold/image1:v0.0.1@sha256:abac"},
-				{ImageName: "skaffold/image2", Tag: "skaffold/image2:v0.0.2@sha256:abac"},
+				{ImageName: "skaffold/image1", DeployTag: "skaffold/image1:v0.0.1@sha256:abac", Tags: []string{"skaffold/image1:v0.0.1@sha256:abac"}},
+				{ImageName: "skaffold/image2", DeployTag: "skaffold/image2:v0.0.2@sha256:abac", Tags: []string{"skaffold/image2:v0.0.2@sha256:abac"}},
 			},
 			results: map[string]interface{}{
 				"skaffold/image1": Artifact{
 					ImageName: "skaffold/image1",
-					Tag:       "skaffold/image1:v0.0.1@sha256:abac",
+					DeployTag: "skaffold/image1:v0.0.1@sha256:abac",
+					Tags:      []string{"skaffold/image1:v0.0.1@sha256:abac"},
 				},
 				"skaffold/image2": Artifact{
 					ImageName: "skaffold/image2",
-					Tag:       "skaffold/image2:v0.0.2@sha256:abac",
+					DeployTag: "skaffold/image2:v0.0.2@sha256:abac",
+					Tags:      []string{"skaffold/image2:v0.0.2@sha256:abac"},
 				},
 			},
 		},
@@ -125,7 +127,8 @@ func TestCollectResults(t *testing.T) {
 				"skaffold/image1": fmt.Errorf("Could not build image skaffold/image1"),
 				"skaffold/image2": Artifact{
 					ImageName: "skaffold/image2",
-					Tag:       "skaffold/image2:v0.0.2@sha256:abac",
+					DeployTag: "skaffold/image2:v0.0.2@sha256:abac",
+					Tags:      []string{"skaffold/image2:v0.0.2@sha256:abac"},
 				},
 			},
 			shouldErr: true,
@@ -141,12 +144,14 @@ func TestCollectResults(t *testing.T) {
 			results: map[string]interface{}{
 				"skaffold/image1": Artifact{
 					ImageName: "skaffold/image1",
-					Tag:       "skaffold/image1:v0.0.1@sha256:abac",
+					DeployTag: "skaffold/image1:v0.0.1@sha256:abac",
+					Tags:      []string{"skaffold/image1:v0.0.1@sha256:abac"},
 				},
 				"skaffold/image2": fmt.Errorf("Could not build image skaffold/image1"),
 				"skaffold/image3": Artifact{
 					ImageName: "skaffold/image3",
-					Tag:       "skaffold/image3:v0.0.1@sha256:abac",
+					DeployTag: "skaffold/image3:v0.0.1@sha256:abac",
+					Tags:      []string{"skaffold/image3:v0.0.1@sha256:abac"},
 				},
 			},
 			shouldErr: true,
@@ -161,7 +166,8 @@ func TestCollectResults(t *testing.T) {
 			results: map[string]interface{}{
 				"skaffold/image1": Artifact{
 					ImageName: "skaffold/image1:v0.0.1@sha256:abac",
-					Tag:       "skaffold/image1:v0.0.1@sha256:abac",
+					DeployTag: "skaffold/image1:v0.0.1@sha256:abac",
+					Tags:      []string{"skaffold/image1:v0.0.1@sha256:abac"},
 				},
 			},
 			shouldErr: true,
@@ -203,7 +209,7 @@ func TestInParallel(t *testing.T) {
 		{
 			description: "short and nice build log",
 			expected:    "Building [skaffold/image1]...\nshort\nBuilding [skaffold/image2]...\nshort\n",
-			buildFunc: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+			buildFunc: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 				out.Write([]byte("short"))
 				return fmt.Sprintf("%s:tag", artifact.ImageName), nil
 			},
@@ -217,7 +223,7 @@ Building [skaffold/image2]...
 This is a long string more than 10 bytes.
 And new lines
 `,
-			buildFunc: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+			buildFunc: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 				out.Write([]byte("This is a long string more than 10 bytes.\nAnd new lines"))
 				return fmt.Sprintf("%s:tag", artifact.ImageName), nil
 			},
@@ -231,8 +237,8 @@ And new lines
 				{ImageName: "skaffold/image2"},
 			}
 			tags := tag.ImageTags{
-				"skaffold/image1": "skaffold/image1:v0.0.1",
-				"skaffold/image2": "skaffold/image2:v0.0.2",
+				"skaffold/image1": {"skaffold/image1:v0.0.1"},
+				"skaffold/image2": {"skaffold/image2:v0.0.2"},
 			}
 			initializeEvents()
 
@@ -275,19 +281,19 @@ func TestInParallelConcurrency(t *testing.T) {
 				tag := fmt.Sprintf("skaffold/image%d:tag", i)
 
 				artifacts = append(artifacts, &latest.Artifact{ImageName: imageName})
-				tags[imageName] = tag
+				tags[imageName] = []string{tag}
 			}
 
 			var actualConcurrency int32
 
-			builder := func(_ context.Context, _ io.Writer, _ *latest.Artifact, tag string) (string, error) {
+			builder := func(_ context.Context, _ io.Writer, _ *latest.Artifact, tags []string) (string, error) {
 				if atomic.AddInt32(&actualConcurrency, 1) > int32(test.maxConcurrency) {
 					return "", fmt.Errorf("only %d build can run at a time", test.maxConcurrency)
 				}
 				time.Sleep(5 * time.Millisecond)
 				atomic.AddInt32(&actualConcurrency, -1)
 
-				return tag, nil
+				return tags[0], nil
 			}
 
 			initializeEvents()
@@ -310,20 +316,20 @@ func TestInParallelForArgs(t *testing.T) {
 		{
 			description: "runs in sequence for 1 artifact",
 			inSeqFunc: func(context.Context, io.Writer, tag.ImageTags, []*latest.Artifact, artifactBuilder) ([]Artifact, error) {
-				return []Artifact{{ImageName: "singleArtifact", Tag: "one"}}, nil
+				return []Artifact{{ImageName: "singleArtifact", DeployTag: "one", Tags: []string{"one"}}}, nil
 			},
 			artifactLen: 1,
-			expected:    []Artifact{{ImageName: "singleArtifact", Tag: "one"}},
+			expected:    []Artifact{{ImageName: "singleArtifact", DeployTag: "one", Tags: []string{"one"}}},
 		},
 		{
 			description: "runs in parallel for 2 artifacts",
-			buildArtifact: func(_ context.Context, _ io.Writer, _ *latest.Artifact, tag string) (string, error) {
-				return tag, nil
+			buildArtifact: func(_ context.Context, _ io.Writer, _ *latest.Artifact, tags []string) (string, error) {
+				return tags[0], nil
 			},
 			artifactLen: 2,
 			expected: []Artifact{
-				{ImageName: "artifact1", Tag: "artifact1@tag1"},
-				{ImageName: "artifact2", Tag: "artifact2@tag2"},
+				{ImageName: "artifact1", DeployTag: "artifact1@tag1", Tags: []string{"artifact1@tag1"}},
+				{ImageName: "artifact2", DeployTag: "artifact2@tag2", Tags: []string{"artifact2@tag2"}},
 			},
 		},
 		{
@@ -339,7 +345,7 @@ func TestInParallelForArgs(t *testing.T) {
 			for i := 0; i < test.artifactLen; i++ {
 				a := fmt.Sprintf("artifact%d", i+1)
 				artifacts[i] = &latest.Artifact{ImageName: a}
-				tags[a] = fmt.Sprintf("%s@tag%d", a, i+1)
+				tags[a] = []string{fmt.Sprintf("%s@tag%d", a, i+1)}
 			}
 			if test.inSeqFunc != nil {
 				t.Override(&runInSequence, test.inSeqFunc)

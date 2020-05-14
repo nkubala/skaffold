@@ -80,7 +80,7 @@ func TestBuildJibGradleToDocker(t *testing.T) {
 				ArtifactType: latest.ArtifactType{
 					JibArtifact: test.artifact,
 				},
-			}, "img:tag")
+			}, []string{"img:tag"})
 
 			t.CheckError(test.shouldErr, err)
 			if test.shouldErr {
@@ -144,7 +144,7 @@ func TestBuildJibGradleToRegistry(t *testing.T) {
 				ArtifactType: latest.ArtifactType{
 					JibArtifact: test.artifact,
 				},
-			}, "img:tag")
+			}, []string{"img:tag"})
 
 			t.CheckError(test.shouldErr, err)
 			if test.shouldErr {
@@ -327,21 +327,21 @@ func TestGenerateGradleBuildArgs(t *testing.T) {
 	tests := []struct {
 		description        string
 		in                 latest.JibArtifact
-		image              string
+		images             []string
 		skipTests          bool
 		insecureRegistries map[string]bool
 		out                []string
 	}{
-		{"single module", latest.JibArtifact{}, "image", false, nil, []string{"fake-gradleBuildArgs-for-testTask", "--image=image"}},
-		{"single module without tests", latest.JibArtifact{}, "image", true, nil, []string{"fake-gradleBuildArgs-for-testTask-skipTests", "--image=image"}},
-		{"multi module", latest.JibArtifact{Project: "project"}, "image", false, nil, []string{"fake-gradleBuildArgs-for-project-for-testTask", "--image=image"}},
-		{"multi module without tests", latest.JibArtifact{Project: "project"}, "image", true, nil, []string{"fake-gradleBuildArgs-for-project-for-testTask-skipTests", "--image=image"}},
-		{"multi module without tests with insecure registries", latest.JibArtifact{Project: "project"}, "registry.tld/image", true, map[string]bool{"registry.tld": true}, []string{"fake-gradleBuildArgs-for-project-for-testTask-skipTests", "-Djib.allowInsecureRegistries=true", "--image=registry.tld/image"}},
+		{"single module", latest.JibArtifact{}, []string{"image"}, false, nil, []string{"fake-gradleBuildArgs-for-testTask", "--image=image"}},
+		{"single module without tests", latest.JibArtifact{}, []string{"image"}, true, nil, []string{"fake-gradleBuildArgs-for-testTask-skipTests", "--image=image"}},
+		{"multi module", latest.JibArtifact{Project: "project"}, []string{"image"}, false, nil, []string{"fake-gradleBuildArgs-for-project-for-testTask", "--image=image"}},
+		{"multi module without tests", latest.JibArtifact{Project: "project"}, []string{"image"}, true, nil, []string{"fake-gradleBuildArgs-for-project-for-testTask-skipTests", "--image=image"}},
+		{"multi module without tests with insecure registries", latest.JibArtifact{Project: "project"}, []string{"registry.tld/image"}, true, map[string]bool{"registry.tld": true}, []string{"fake-gradleBuildArgs-for-project-for-testTask-skipTests", "-Djib.allowInsecureRegistries=true", "--image=registry.tld/image"}},
 	}
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&gradleBuildArgsFunc, getGradleBuildArgsFuncFake(t, MinimumJibGradleVersion))
-			command := GenerateGradleBuildArgs("testTask", test.image, &test.in, test.skipTests, test.insecureRegistries)
+			command := GenerateGradleBuildArgs("testTask", test.images, &test.in, test.skipTests, test.insecureRegistries)
 			t.CheckDeepEqual(test.out, command)
 		})
 	}

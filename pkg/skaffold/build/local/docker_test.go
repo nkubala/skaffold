@@ -93,7 +93,7 @@ func TestDockerCLIBuild(t *testing.T) {
 				},
 			}
 
-			_, err = builder.buildDocker(context.Background(), ioutil.Discard, artifact, "tag")
+			_, err = builder.buildDocker(context.Background(), ioutil.Discard, artifact, []string{"tag"})
 			t.CheckNoError(err)
 		})
 	}

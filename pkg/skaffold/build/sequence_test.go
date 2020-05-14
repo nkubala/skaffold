@@ -41,26 +41,26 @@ func TestInSequence(t *testing.T) {
 	}{
 		{
 			description: "build succeeds",
-			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
-				return fmt.Sprintf("%s@sha256:abac", tag), nil
+			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
+				return fmt.Sprintf("%s@sha256:abac", tags[0]), nil
 			},
 			tags: tag.ImageTags{
-				"skaffold/image1": "skaffold/image1:v0.0.1",
-				"skaffold/image2": "skaffold/image2:v0.0.2",
+				"skaffold/image1": {"skaffold/image1:v0.0.1"},
+				"skaffold/image2": {"skaffold/image2:v0.0.2"},
 			},
 			expectedArtifacts: []Artifact{
-				{ImageName: "skaffold/image1", Tag: "skaffold/image1:v0.0.1@sha256:abac"},
-				{ImageName: "skaffold/image2", Tag: "skaffold/image2:v0.0.2@sha256:abac"},
+				{ImageName: "skaffold/image1", DeployTag: "skaffold/image1:v0.0.1@sha256:abac", Tags: []string{"skaffold/image1:v0.0.1@sha256:abac"}},
+				{ImageName: "skaffold/image2", DeployTag: "skaffold/image2:v0.0.2@sha256:abac", Tags: []string{"skaffold/image2:v0.0.2@sha256:abac"}},
 			},
 			expectedOut: "Building [skaffold/image1]...\nBuilding [skaffold/image2]...\n",
 		},
 		{
 			description: "build fails",
-			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tag string) (string, error) {
+			buildArtifact: func(ctx context.Context, out io.Writer, artifact *latest.Artifact, tags []string) (string, error) {
 				return "", fmt.Errorf("build fails")
 			},
 			tags: tag.ImageTags{
-				"skaffold/image1": "",
+				"skaffold/image1": {""},
 			},
 			expectedOut: "Building [skaffold/image1]...\n",
 			shouldErr:   true,
@@ -96,13 +96,13 @@ func TestInSequenceResultsOrder(t *testing.T) {
 		shouldErr   bool
 	}{
 		{
-			description: "shd concatenate the tag",
+			description: "should concatenate the tag",
 			images:      []string{"a", "b", "c", "d"},
 			expected: []Artifact{
-				{ImageName: "a", Tag: "a:a"},
-				{ImageName: "b", Tag: "b:ab"},
-				{ImageName: "c", Tag: "c:abc"},
-				{ImageName: "d", Tag: "d:abcd"},
+				{ImageName: "a", DeployTag: "a:a", Tags: []string{"a:a"}},
+				{ImageName: "b", DeployTag: "b:ab", Tags: []string{"b:ab"}},
+				{ImageName: "c", DeployTag: "c:abc", Tags: []string{"c:abc"}},
+				{ImageName: "d", DeployTag: "d:abcd", Tags: []string{"d:abcd"}},
 			},
 		},
 	}

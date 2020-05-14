@@ -44,7 +44,7 @@ func TestBuildBazel(t *testing.T) {
 		}
 
 		builder := NewArtifactBuilder(localDocker, nil, false)
-		_, err := builder.Build(context.Background(), ioutil.Discard, artifact, "img:tag")
+		_, err := builder.Build(context.Background(), ioutil.Discard, artifact, []string{"img:tag"})
 
 		t.CheckNoError(err)
 	})
@@ -61,7 +61,7 @@ func TestBuildBazelFailInvalidTarget(t *testing.T) {
 		}
 
 		builder := NewArtifactBuilder(nil, nil, false)
-		_, err := builder.Build(context.Background(), ioutil.Discard, artifact, "img:tag")
+		_, err := builder.Build(context.Background(), ioutil.Discard, artifact, []string{"img:tag"})
 
 		t.CheckErrorContains("the bazel build target should end with .tar", err)
 	})

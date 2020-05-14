@@ -105,7 +105,7 @@ func TestKanikoBuildSpec(t *testing.T) {
 				},
 			}
 
-			desc, err := builder.buildSpec(artifact, "nginx", "bucket", "object")
+			desc, err := builder.buildSpec(artifact, []string{"nginx"}, "bucket", "object")
 
 			expected := cloudbuild.Build{
 				LogsBucket: "bucket",

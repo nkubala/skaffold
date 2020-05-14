@@ -80,7 +80,7 @@ func TestBuildJibMavenToDocker(t *testing.T) {
 				ArtifactType: latest.ArtifactType{
 					JibArtifact: test.artifact,
 				},
-			}, "img:tag")
+			}, []string{"img:tag"})
 
 			t.CheckError(test.shouldErr, err)
 			if test.shouldErr {
@@ -140,7 +140,7 @@ func TestBuildJibMavenToRegistry(t *testing.T) {
 				ArtifactType: latest.ArtifactType{
 					JibArtifact: test.artifact,
 				},
-			}, "img:tag")
+			}, []string{"img:tag"})
 
 			t.CheckError(test.shouldErr, err)
 			if test.shouldErr {
@@ -315,21 +315,21 @@ func TestGenerateMavenBuildArgs(t *testing.T) {
 	tests := []struct {
 		description        string
 		a                  latest.JibArtifact
-		image              string
+		images             []string
 		skipTests          bool
 		insecureRegistries map[string]bool
 		out                []string
 	}{
-		{"single module", latest.JibArtifact{}, "image", false, nil, []string{"fake-mavenBuildArgs-for-test-goal", "-Dimage=image"}},
-		{"single module without tests", latest.JibArtifact{}, "image", true, nil, []string{"fake-mavenBuildArgs-for-test-goal-skipTests", "-Dimage=image"}},
-		{"multi module", latest.JibArtifact{Project: "module"}, "image", false, nil, []string{"fake-mavenBuildArgs-for-module-for-test-goal", "-Dimage=image"}},
-		{"multi module without tests", latest.JibArtifact{Project: "module"}, "image", true, nil, []string{"fake-mavenBuildArgs-for-module-for-test-goal-skipTests", "-Dimage=image"}},
-		{"multi module without tests with insecure-registry", latest.JibArtifact{Project: "module"}, "registry.tld/image", true, map[string]bool{"registry.tld": true}, []string{"fake-mavenBuildArgs-for-module-for-test-goal-skipTests", "-Djib.allowInsecureRegistries=true", "-Dimage=registry.tld/image"}},
+		{"single module", latest.JibArtifact{}, []string{"image"}, false, nil, []string{"fake-mavenBuildArgs-for-test-goal", "-Dimage=image"}},
+		{"single module without tests", latest.JibArtifact{}, []string{"image"}, true, nil, []string{"fake-mavenBuildArgs-for-test-goal-skipTests", "-Dimage=image"}},
+		{"multi module", latest.JibArtifact{Project: "module"}, []string{"image"}, false, nil, []string{"fake-mavenBuildArgs-for-module-for-test-goal", "-Dimage=image"}},
+		{"multi module without tests", latest.JibArtifact{Project: "module"}, []string{"image"}, true, nil, []string{"fake-mavenBuildArgs-for-module-for-test-goal-skipTests", "-Dimage=image"}},
+		{"multi module without tests with insecure-registry", latest.JibArtifact{Project: "module"}, []string{"registry.tld/image"}, true, map[string]bool{"registry.tld": true}, []string{"fake-mavenBuildArgs-for-module-for-test-goal-skipTests", "-Djib.allowInsecureRegistries=true", "-Dimage=registry.tld/image"}},
 	}
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&mavenBuildArgsFunc, getMavenBuildArgsFuncFake(t, MinimumJibMavenVersion))
-			args := GenerateMavenBuildArgs("test-goal", test.image, &test.a, test.skipTests, test.insecureRegistries)
+			args := GenerateMavenBuildArgs("test-goal", test.images, &test.a, test.skipTests, test.insecureRegistries)
 			t.CheckDeepEqual(test.out, args)
 		})
 	}

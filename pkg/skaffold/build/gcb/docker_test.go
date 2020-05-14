@@ -45,7 +45,7 @@ func TestDockerBuildSpec(t *testing.T) {
 		MachineType: "n1-standard-1",
 		Timeout:     "10m",
 	})
-	desc, err := builder.buildSpec(artifact, "nginx", "bucket", "object")
+	desc, err := builder.buildSpec(artifact, []string{"nginx"}, "bucket", "object")
 
 	expected := cloudbuild.Build{
 		LogsBucket: "bucket",
@@ -79,7 +79,7 @@ func TestPullCacheFrom(t *testing.T) {
 	builder := newBuilder(latest.GoogleCloudBuild{
 		DockerImage: "docker/docker",
 	})
-	desc, err := builder.dockerBuildSpec(artifact, "nginx2")
+	desc, err := builder.dockerBuildSpec(artifact, []string{"nginx2"})
 
 	expected := []*cloudbuild.BuildStep{{
 		Name:       "docker/docker",
