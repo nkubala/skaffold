@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package flags
 
 import (
 	"fmt"
@@ -24,13 +24,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/GoogleContainerTools/skaffold/cmd/skaffold/app/flags"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/instrumentation"
-)
-
-var (
-	fromBuildOutputFile flags.BuildOutputFileFlag
 )
 
 // Flag defines a Skaffold CLI flag which contains a list of
@@ -470,7 +465,7 @@ var flagRegistry = []Flag{
 		Name:          "build-artifacts",
 		Shorthand:     "a",
 		Usage:         "File containing build result from a previous 'skaffold build --file-output'",
-		Value:         &fromBuildOutputFile,
+		Value:         &opts.FromBuildOutputFile,
 		DefValue:      "",
 		FlagAddMethod: "Var",
 		DefinedOn:     []string{"test", "deploy"},

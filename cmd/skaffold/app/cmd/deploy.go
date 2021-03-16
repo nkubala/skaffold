@@ -42,7 +42,7 @@ func NewCmdDeploy() *cobra.Command {
 		WithExample("Build the artifacts and then deploy them", "build -q | skaffold deploy --build-artifacts -").
 		WithExample("Deploy without first rendering the manifests", "deploy --skip-render").
 		WithCommonFlags().
-		WithFlags([]*Flag{
+		WithFlags([]*flags.Flag{
 			{Value: &preBuiltImages, Name: "images", Shorthand: "i", Usage: "A list of pre-built images to deploy"},
 			{Value: &opts.SkipRender, Name: "skip-render", DefValue: false, Usage: "Don't render the manifests, just deploy them", IsEnum: true},
 		}).
@@ -59,7 +59,7 @@ func doDeploy(ctx context.Context, out io.Writer) error {
 		for _, cfg := range configs {
 			artifacts = append(artifacts, cfg.Build.Artifacts...)
 		}
-		buildArtifacts, err := getBuildArtifactsAndSetTags(artifacts, r.ApplyDefaultRepo)
+		buildArtifacts, err := build.GetBuildArtifactsAndSetTags(artifacts, fromBuildOutputFile.Artifacts(), preBuiltImage.Artifacts(), r.ApplyDefaultRepo)
 		if err != nil {
 			tips.PrintUseRunVsDeploy(out)
 			return err
