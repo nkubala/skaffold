@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
@@ -35,8 +36,10 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/progress"
 	"github.com/docker/docker/pkg/streamformatter"
+	"github.com/docker/go-connections/nat"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
+	k8sv1 "k8s.io/api/core/v1"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	sErrors "github.com/GoogleContainerTools/skaffold/pkg/skaffold/errors"
@@ -64,10 +67,13 @@ type LocalDaemon interface {
 	ExtraEnv() []string
 	ServerVersion(ctx context.Context) (types.Version, error)
 	ConfigFile(ctx context.Context, image string) (*v1.ConfigFile, error)
+	ContainerLogs(ctx context.Context, out io.Writer, id string /* stopper chan bool, */, muter chan bool) (io.ReadCloser, error)
 	Build(ctx context.Context, out io.Writer, workspace string, artifact string, a *latestV1.DockerArtifact, opts BuildOptions) (string, error)
 	Push(ctx context.Context, out io.Writer, ref string) (string, error)
 	Pull(ctx context.Context, out io.Writer, ref string) error
 	Load(ctx context.Context, out io.Writer, input io.Reader, ref string) (string, error)
+	Run(ctx context.Context, out io.Writer, name, ref, network string, pf []*latestV1.PortForwardResource, container k8sv1.Container, initContainers []k8sv1.Container) (string, error)
+	Delete(ctx context.Context, out io.Writer, id string) error
 	Tag(ctx context.Context, image, ref string) error
 	TagWithImageID(ctx context.Context, ref string, imageID string) (string, error)
 	ImageID(ctx context.Context, ref string) (string, error)
@@ -75,6 +81,8 @@ type LocalDaemon interface {
 	ImageRemove(ctx context.Context, image string, opts types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
 	ImageExists(ctx context.Context, ref string) bool
 	ImageList(ctx context.Context, ref string) ([]types.ImageSummary, error)
+	NetworkCreate(ctx context.Context, name string) error
+	NetworkRemove(ctx context.Context, name string) error
 	Prune(ctx context.Context, images []string, pruneChildren bool) ([]string, error)
 	DiskUsage(ctx context.Context) (uint64, error)
 	RawClient() client.CommonAPIClient
@@ -105,6 +113,143 @@ func NewLocalDaemon(apiClient client.CommonAPIClient, extraEnv []string, forceRe
 		forceRemove: forceRemove,
 		imageCache:  make(map[string]*v1.ConfigFile),
 	}
+}
+
+func (l *localDaemon) ContainerLogs(ctx context.Context, out io.Writer, id string, muter chan bool) (io.ReadCloser, error) {
+	return l.apiClient.ContainerLogs(ctx, id, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
+}
+
+// Delete stops, removes, and prunes a running container
+func (l *localDaemon) Delete(ctx context.Context, out io.Writer, id string) error {
+	// TODO(nkubala): do we always need to stop containers here? seems like no
+	if err := l.apiClient.ContainerStop(ctx, id, nil); err != nil {
+		logrus.Warnf("unable to stop running container: %w", err)
+	}
+	if err := l.apiClient.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
+		return fmt.Errorf("removing stopped container: %w", err)
+	}
+	_, err := l.apiClient.ContainersPrune(ctx, filters.Args{})
+	if err != nil {
+		return fmt.Errorf("pruning removed container: %w", err)
+	}
+	return nil
+}
+
+// Run creates a container from a given image reference, and returns then container ID.
+func (l *localDaemon) Run(ctx context.Context, out io.Writer, name, ref, network string, pf []*latestV1.PortForwardResource, cr k8sv1.Container, initCr []k8sv1.Container) (string, error) {
+	var volFrom []string
+	for _, c := range initCr {
+		if len(c.VolumeMounts) > 0 {
+			volFrom = append(volFrom, c.Name)
+		}
+		if err := l.Pull(ctx, out, c.Image); err != nil {
+			return "", err
+		}
+		if _, err := l.run(ctx, out, network, nil, nil, c, nil, true); err != nil {
+			return "", err
+		}
+	}
+
+	return l.run(ctx, out, network, pf, cr.Ports, cr, volFrom, false)
+}
+
+func (l *localDaemon) run(ctx context.Context, out io.Writer, network string, pf []*latestV1.PortForwardResource, crp []k8sv1.ContainerPort, cr k8sv1.Container, volFrom []string, wait bool) (string, error) {
+	ports, bindings, err := getPorts(pf, crp)
+	if err != nil {
+		return "", fmt.Errorf("defining docker port forward: %w", err)
+	}
+	var mount map[string]struct{}
+	if len(cr.VolumeMounts) > 0 {
+		mount = make(map[string]struct{})
+	}
+	for _, m := range cr.VolumeMounts {
+		mount[m.MountPath] = struct{}{}
+	}
+	cfg := &container.Config{
+		ExposedPorts: ports,
+		Tty:          cr.TTY,
+		OpenStdin:    cr.Stdin,
+		StdinOnce:    cr.StdinOnce,
+		Env:          toSlice(cr.Env),
+		Entrypoint:   cr.Command,
+		Image:        cr.Image,
+		Volumes:      mount,
+		WorkingDir:   cr.WorkingDir,
+	}
+
+	hCfg := &container.HostConfig{
+		NetworkMode:  container.NetworkMode(network),
+		PortBindings: bindings,
+		VolumesFrom:  volFrom,
+	}
+	c, err := l.apiClient.ContainerCreate(ctx, cfg, hCfg, nil, nil, cr.Name)
+	if err != nil {
+		return "", err
+	}
+	if err := l.apiClient.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); err != nil {
+		return "", err
+	}
+	if wait {
+		l.apiClient.ContainerWait(ctx, c.ID, container.WaitConditionNotRunning)
+	}
+	return c.ID, nil
+}
+
+func toSlice(env []k8sv1.EnvVar) []string {
+	var sl []string
+	for _, e := range env {
+		sl = append(sl, fmt.Sprintf("%s=%s", e.Name, e.Value))
+	}
+	return sl
+}
+
+func getPorts(pf []*latestV1.PortForwardResource, crp []k8sv1.ContainerPort) (nat.PortSet, nat.PortMap, error) {
+	s := make(nat.PortSet)
+	m := make(nat.PortMap)
+	for _, p := range pf {
+		port, err := nat.NewPort("tcp", p.Port.String())
+		if err != nil {
+			return nil, nil, err
+		}
+		s[port] = struct{}{}
+		m[port] = []nat.PortBinding{
+			{HostIP: p.Address, HostPort: fmt.Sprintf("%d", p.LocalPort)},
+		}
+	}
+
+	for _, p := range crp {
+		port, err := nat.NewPort(strings.ToLower(string(p.Protocol)), fmt.Sprintf("%d", p.ContainerPort))
+		if err != nil {
+			return nil, nil, err
+		}
+		s[port] = struct{}{}
+		m[port] = []nat.PortBinding{
+			{HostIP: p.HostIP, HostPort: fmt.Sprintf("%d", p.ContainerPort)},
+		}
+	}
+	return s, m, nil
+}
+
+func (l *localDaemon) NetworkCreate(ctx context.Context, name string) error {
+	nr, err := l.apiClient.NetworkList(ctx, types.NetworkListOptions{})
+	for _, network := range nr {
+		if network.Name == name {
+			return nil
+		}
+	}
+
+	r, err := l.apiClient.NetworkCreate(ctx, name, types.NetworkCreate{})
+	if err != nil {
+		return err
+	}
+	if r.Warning != "" {
+		logrus.Warnln(r.Warning)
+	}
+	return nil
+}
+
+func (l *localDaemon) NetworkRemove(ctx context.Context, name string) error {
+	return l.apiClient.NetworkRemove(ctx, name)
 }
 
 // ExtraEnv returns the env variables needed to point at this local Docker
