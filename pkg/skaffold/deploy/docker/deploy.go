@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
 	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
+	pkgsync "github.com/GoogleContainerTools/skaffold/pkg/skaffold/sync"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 )
 
@@ -40,6 +41,7 @@ type Deployer struct {
 	accessor access.Accessor
 	logger   log.Logger
 	debugger debug.Debugger
+	syncer   pkgsync.Syncer
 
 	cfg                *v1.DockerDeploy
 	client             dockerutil.LocalDaemon
@@ -67,6 +69,8 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		}
 	}
 
+	tracker := NewContainerTracker()
+
 	return &Deployer{
 		cfg:                d,
 		client:             client,
@@ -75,7 +79,11 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		network:            "skaffold-network",
 
 		debugAdapter: debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
-		tracker:      NewContainerTracker(),
+		tracker:      tracker,
+		accessor:     provider.Accessor.GetClusterlessAccessor(),
+		logger:       provider.Logger.GetClusterlessLogger(),
+		debugger:     provider.Debugger.GetClusterlessDebugger(),
+		syncer:       provider.Syncer.GetClusterlessSyncer(),
 	}, nil
 }
 
@@ -99,6 +107,9 @@ func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Art
 			}
 		}
 		container, initContainers, err := d.debugAdapter.Transform(b.Tag, b.ImageName, builds)
+		if err != nil {
+			return nil, errors.Wrap(err, "applying debug transforms")
+		}
 		id, err := d.client.Run(ctx, out, b.ImageName, b.Tag, d.network, d.pf[b.ImageName], container, initContainers)
 		if err != nil {
 			return nil, errors.Wrap(err, "creating container in local docker")

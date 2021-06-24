@@ -27,6 +27,7 @@ import (
 // Provider is an object that distributes instances of all implementations of
 // Debugger in the Skaffold codebase.
 type Provider interface {
+	GetClusterlessDebugger() Debugger
 	// GetKubernetesDebugger returns a new instance of the Kubernetes Debugger implementation
 	GetKubernetesDebugger(*kubernetes.ImageList) Debugger
 
@@ -35,7 +36,8 @@ type Provider interface {
 }
 
 type fullProvider struct {
-	kubernetesDebugger func(*kubernetes.ImageList) Debugger
+	clusterlessDebugger func() Debugger
+	kubernetesDebugger  func(*kubernetes.ImageList) Debugger
 }
 
 var (
@@ -48,6 +50,9 @@ var (
 func NewDebugProvider(debugConfig Config) Provider {
 	once.Do(func() {
 		provider = &fullProvider{
+			clusterlessDebugger: func() Debugger {
+				return nil
+			},
 			kubernetesDebugger: func(podSelector *kubernetes.ImageList) Debugger {
 				if debugConfig.Mode() != config.RunModes.Debug {
 					return &NoopDebugger{}
@@ -60,6 +65,10 @@ func NewDebugProvider(debugConfig Config) Provider {
 	return provider
 }
 
+func (p *fullProvider) GetClusterlessDebugger() Debugger {
+	return p.clusterlessDebugger()
+}
+
 func (p *fullProvider) GetKubernetesDebugger(podSelector *kubernetes.ImageList) Debugger {
 	return p.kubernetesDebugger(podSelector)
 }
@@ -70,6 +79,10 @@ func (p *fullProvider) GetNoopDebugger() Debugger {
 
 // NoopProvider is used in tests
 type NoopProvider struct{}
+
+func (p *NoopProvider) GetClusterlessDebugger() Debugger {
+	return &NoopDebugger{}
+}
 
 func (p *NoopProvider) GetKubernetesDebugger(_ *kubernetes.ImageList) Debugger {
 	return &NoopDebugger{}

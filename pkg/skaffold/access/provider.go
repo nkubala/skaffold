@@ -30,8 +30,9 @@ type Provider interface {
 }
 
 type fullProvider struct {
-	label       label.Config
-	k8sAccessor map[string]Accessor
+	label               label.Config
+	k8sAccessor         map[string]Accessor
+	clusterlessAccessor Accessor
 }
 
 func NewAccessorProvider(labelConfig label.Config) Provider {
@@ -39,7 +40,10 @@ func NewAccessorProvider(labelConfig label.Config) Provider {
 }
 
 func (p *fullProvider) GetClusterlessAccessor() Accessor {
-	return &NoopAccessor{}
+	if p.clusterlessAccessor == nil {
+		p.clusterlessAccessor = &NoopAccessor{}
+	}
+	return p.clusterlessAccessor
 }
 
 func (p *fullProvider) GetKubernetesAccessor(config portforward.Config, podSelector *kubernetes.ImageList) Accessor {

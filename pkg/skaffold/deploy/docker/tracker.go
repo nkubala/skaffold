@@ -41,7 +41,7 @@ func NewContainerTracker() *ContainerTracker {
 }
 
 func (t *ContainerTracker) Reset() {
-	for c, _ := range t.containers {
+	for c := range t.containers {
 		t.stoppers[c] <- true
 		delete(t.containers, c)
 	}
