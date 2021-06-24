@@ -25,31 +25,37 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/build"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/access"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
-	deploy "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
 	dockerutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
 	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 )
 
 type Deployer struct {
+	accessor access.Accessor
+	logger   log.Logger
+	debugger debug.Debugger
+
 	cfg                *v1.DockerDeploy
 	client             dockerutil.LocalDaemon
 	deployedContainers map[string]string                    // imageName -> containerID
 	pf                 map[string][]*v1.PortForwardResource // imageName -> port forward resources
 	network            string
 	once               sync.Once
-	debugAdapter       debug.Adapter
-	tracker            *ContainerTracker
+	// debugAdapter       debug.Adapter
+	tracker *ContainerTracker
 }
 
 type Config interface {
-	deploy.Config
+	types.Config
 }
 
-func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resources []*v1.PortForwardResource, tracker *ContainerTracker) (*Deployer, error) {
+func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resources []*v1.PortForwardResource, provider deploy.ComponentProvider) (*Deployer, error) {
 	client, err := dockerutil.NewAPIClient(cfg)
 	if err != nil {
 		return nil, err
@@ -67,8 +73,9 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		pf:                 pf,
 		deployedContainers: make(map[string]string),
 		network:            "skaffold-network",
-		debugAdapter:       debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
-		tracker:            tracker,
+
+		// debugAdapter:       debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
+		tracker: NewContainerTracker(),
 	}, nil
 }
 
@@ -91,7 +98,7 @@ func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Art
 				return nil, fmt.Errorf("failed to remove old container %s for image %s: %w", containerID, b.ImageName, err)
 			}
 		}
-		container, initContainers, err := d.debugAdapter.Transform(b.Tag, b.ImageName, builds)
+		// container, initContainers, err := d.debugAdapter.Transform(b.Tag, b.ImageName, builds)
 		id, err := d.client.Run(ctx, out, b.ImageName, b.Tag, d.network, d.pf[b.ImageName], container, initContainers)
 		if err != nil {
 			return nil, errors.Wrap(err, "creating container in local docker")
@@ -121,7 +128,7 @@ func (d *Deployer) Cleanup(ctx context.Context, out io.Writer) error {
 	return errors.Wrap(err, "cleaning up skaffold created network")
 }
 
-func (d *Deployer) Render(context.Context, io.Writer, []build.Artifact, bool, string) error {
+func (d *Deployer) Render(context.Context, io.Writer, []graph.Artifact, bool, string) error {
 	// TODO(nkubala): implement
 	return errors.New("not implemented")
 }
