@@ -77,9 +77,9 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		pf:                 pf,
 		deployedContainers: make(map[string]string),
 		network:            "skaffold-network",
+		tracker:            tracker,
 
 		debugAdapter: debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
-		tracker:      tracker,
 		accessor:     provider.Accessor.GetClusterlessAccessor(),
 		logger:       provider.Logger.GetClusterlessLogger(),
 		debugger:     provider.Debugger.GetClusterlessDebugger(),
