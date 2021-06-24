@@ -24,6 +24,7 @@ import (
 )
 
 type Provider interface {
+	GetClusterlessAccessor() Accessor
 	GetKubernetesAccessor(portforward.Config, *kubernetes.ImageList) Accessor
 	GetNoopAccessor() Accessor
 }
@@ -35,6 +36,10 @@ type fullProvider struct {
 
 func NewAccessorProvider(labelConfig label.Config) Provider {
 	return &fullProvider{label: labelConfig, k8sAccessor: make(map[string]Accessor)}
+}
+
+func (p *fullProvider) GetClusterlessAccessor() Accessor {
+	return &NoopAccessor{}
 }
 
 func (p *fullProvider) GetKubernetesAccessor(config portforward.Config, podSelector *kubernetes.ImageList) Accessor {
@@ -60,6 +65,10 @@ func (p *fullProvider) GetNoopAccessor() Accessor {
 
 // NoopProvider is used in tests
 type NoopProvider struct{}
+
+func (p *NoopProvider) GetClusterlessAccessor() Accessor {
+	return &NoopAccessor{}
+}
 
 func (p *NoopProvider) GetKubernetesAccessor(_ portforward.Config, _ *kubernetes.ImageList) Accessor {
 	return &NoopAccessor{}

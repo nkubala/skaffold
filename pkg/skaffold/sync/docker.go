@@ -27,20 +27,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type containerSyncer struct {
-}
+type containerSyncer struct{}
 
 func (s *containerSyncer) Sync(ctx context.Context, item *Item) error {
 	if len(item.Copy) > 0 {
 		logrus.Infoln("Copying files:", item.Copy, "to", item.Image)
-		if _, err := util.RunCmdOut(s.copyFileFn(ctx, item.Artifact, item.Copy)); err != nil {
+		if _, err := util.RunCmdOut(s.copyFileFn(ctx, item.Image, item.Copy)); err != nil {
 			return fmt.Errorf("copying files: %w", err)
 		}
 	}
 
 	if len(item.Delete) > 0 {
 		logrus.Infoln("Deleting files:", item.Delete, "from", item.Image)
-		if _, err := util.RunCmdOut(s.deleteFileFn(ctx, item.Artifact, item.Copy)); err != nil {
+		if _, err := util.RunCmdOut(s.deleteFileFn(ctx, item.Image, item.Copy)); err != nil {
 			return fmt.Errorf("deleting files: %w", err)
 		}
 	}

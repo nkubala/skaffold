@@ -47,8 +47,8 @@ type Deployer struct {
 	pf                 map[string][]*v1.PortForwardResource // imageName -> port forward resources
 	network            string
 	once               sync.Once
-	// debugAdapter       debug.Adapter
-	tracker *ContainerTracker
+	debugAdapter       debug.Adapter
+	tracker            *ContainerTracker
 }
 
 type Config interface {
@@ -74,8 +74,8 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		deployedContainers: make(map[string]string),
 		network:            "skaffold-network",
 
-		// debugAdapter:       debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
-		tracker: NewContainerTracker(),
+		debugAdapter: debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
+		tracker:      NewContainerTracker(),
 	}, nil
 }
 
@@ -98,7 +98,7 @@ func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Art
 				return nil, fmt.Errorf("failed to remove old container %s for image %s: %w", containerID, b.ImageName, err)
 			}
 		}
-		// container, initContainers, err := d.debugAdapter.Transform(b.Tag, b.ImageName, builds)
+		container, initContainers, err := d.debugAdapter.Transform(b.Tag, b.ImageName, builds)
 		id, err := d.client.Run(ctx, out, b.ImageName, b.Tag, d.network, d.pf[b.ImageName], container, initContainers)
 		if err != nil {
 			return nil, errors.Wrap(err, "creating container in local docker")
