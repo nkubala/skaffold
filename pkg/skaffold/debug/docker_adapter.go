@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
-	deployerr "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/error"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/manifest"
 	v1 "k8s.io/api/core/v1"
@@ -57,7 +56,7 @@ func (a Adapter) Transform(imageTag, containerName string, builds []graph.Artifa
 
 	debugHelpersRegistry, err := config.GetDebugHelpersRegistry(a.globalConfig)
 	if err != nil {
-		return v1.Container{}, nil, deployerr.DebugHelperRetrieveErr(fmt.Errorf("retrieving debug helpers registry: %w", err))
+		return v1.Container{}, nil, DebugHelperRetrieveErr(fmt.Errorf("retrieving debug helpers registry: %w", err))
 	}
 
 	if m, err = manifest.ApplyTransforms(m, builds, a.insecureRegistries, debugHelpersRegistry); err != nil {

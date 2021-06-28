@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/docker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/helm"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kpt"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
@@ -55,47 +56,66 @@ func (d *deployerCtx) StatusCheck() *bool {
 }
 
 // GetDeployer creates a deployer from a given RunContext and deploy pipeline definitions.
-func GetDeployer(runCtx *runcontext.RunContext, provider deploy.ComponentProvider, labels map[string]string) (deploy.Deployer, error) {
+func GetDeployer(runCtx *runcontext.RunContext, provider deploy.ComponentProvider, labels map[string]string) (deploy.Deployer, bool, error) {
 	if runCtx.Opts.Apply {
 		return getDefaultDeployer(runCtx, provider, labels)
 	}
 
 	deployerCfg := runCtx.Deployers()
+	localDeploy := false
+	remoteDeploy := false
 
 	var deployers deploy.DeployerMux
 	for _, d := range deployerCfg {
+		if d.DockerDeploy != nil {
+			localDeploy = true
+			d, err := docker.NewDeployer(runCtx, labels, d.DockerDeploy, runCtx.PortForwardResources(), provider)
+			if err != nil {
+				return nil, false, err
+			}
+			deployers = append(deployers, d)
+		}
+
 		dCtx := &deployerCtx{runCtx, d}
 		if d.HelmDeploy != nil {
+			remoteDeploy = true
 			h, err := helm.NewDeployer(dCtx, labels, provider, d.HelmDeploy)
 			if err != nil {
-				return nil, err
+				return nil, remoteDeploy, err
 			}
 			deployers = append(deployers, h)
 		}
 
 		if d.KptDeploy != nil {
+			remoteDeploy = true
 			deployer := kpt.NewDeployer(dCtx, labels, provider, d.KptDeploy)
 			deployers = append(deployers, deployer)
 		}
 
 		if d.KubectlDeploy != nil {
+			remoteDeploy = true
 			deployer, err := kubectl.NewDeployer(dCtx, labels, provider, d.KubectlDeploy)
 			if err != nil {
-				return nil, err
+				return nil, remoteDeploy, err
 			}
 			deployers = append(deployers, deployer)
 		}
 
 		if d.KustomizeDeploy != nil {
+			remoteDeploy = true
 			deployer, err := kustomize.NewDeployer(dCtx, labels, provider, d.KustomizeDeploy)
 			if err != nil {
-				return nil, err
+				return nil, remoteDeploy, err
 			}
 			deployers = append(deployers, deployer)
 		}
 	}
 
-	return deployers, nil
+	if localDeploy && remoteDeploy {
+		return nil, false, errors.New("docker deployment not supported alongside cluster deployments.")
+	}
+
+	return deployers, localDeploy, nil
 }
 
 /*
@@ -111,7 +131,7 @@ The default deployer will honor a select set of deploy configuration from an exi
 For a multi-config project, we do not currently support resolving conflicts between differing sets of this deploy configuration.
 Therefore, in this function we do implicit validation of the provided configuration, and fail if any conflict cannot be resolved.
 */
-func getDefaultDeployer(runCtx *runcontext.RunContext, provider deploy.ComponentProvider, labels map[string]string) (deploy.Deployer, error) {
+func getDefaultDeployer(runCtx *runcontext.RunContext, provider deploy.ComponentProvider, labels map[string]string) (deploy.Deployer, bool, error) {
 	deployCfgs := runCtx.DeployConfigs()
 
 	var kFlags *v1.KubectlFlags
@@ -123,19 +143,19 @@ func getDefaultDeployer(runCtx *runcontext.RunContext, provider deploy.Component
 	for _, d := range deployCfgs {
 		if d.KubeContext != "" {
 			if kubeContext != "" && kubeContext != d.KubeContext {
-				return nil, errors.New("cannot resolve active Kubernetes context - multiple contexts configured in skaffold.yaml")
+				return nil, true, errors.New("cannot resolve active Kubernetes context - multiple contexts configured in skaffold.yaml")
 			}
 			kubeContext = d.KubeContext
 		}
 		if d.StatusCheckDeadlineSeconds != 0 && d.StatusCheckDeadlineSeconds != int(status.DefaultStatusCheckDeadline.Seconds()) {
 			if statusCheckTimeout != -1 && statusCheckTimeout != d.StatusCheckDeadlineSeconds {
-				return nil, fmt.Errorf("found multiple status check timeouts in skaffold.yaml (not supported in `skaffold apply`): %d, %d", statusCheckTimeout, d.StatusCheckDeadlineSeconds)
+				return nil, true, fmt.Errorf("found multiple status check timeouts in skaffold.yaml (not supported in `skaffold apply`): %d, %d", statusCheckTimeout, d.StatusCheckDeadlineSeconds)
 			}
 			statusCheckTimeout = d.StatusCheckDeadlineSeconds
 		}
 		if d.Logs.Prefix != "" {
 			if logPrefix != "" && logPrefix != d.Logs.Prefix {
-				return nil, fmt.Errorf("found multiple log prefixes in skaffold.yaml (not supported in `skaffold apply`): %s, %s", logPrefix, d.Logs.Prefix)
+				return nil, true, fmt.Errorf("found multiple log prefixes in skaffold.yaml (not supported in `skaffold apply`): %s, %s", logPrefix, d.Logs.Prefix)
 			}
 			logPrefix = d.Logs.Prefix
 		}
@@ -153,11 +173,11 @@ func getDefaultDeployer(runCtx *runcontext.RunContext, provider deploy.Component
 			kFlags = &currentKubectlFlags
 		}
 		if err := validateKubectlFlags(kFlags, currentKubectlFlags); err != nil {
-			return nil, err
+			return nil, true, err
 		}
 		if currentDefaultNamespace != nil {
 			if defaultNamespace != nil && *defaultNamespace != *currentDefaultNamespace {
-				return nil, fmt.Errorf("found multiple namespaces in skaffold.yaml (not supported in `skaffold apply`): %s, %s", *defaultNamespace, *currentDefaultNamespace)
+				return nil, true, fmt.Errorf("found multiple namespaces in skaffold.yaml (not supported in `skaffold apply`): %s, %s", *defaultNamespace, *currentDefaultNamespace)
 			}
 			defaultNamespace = currentDefaultNamespace
 		}
@@ -171,9 +191,9 @@ func getDefaultDeployer(runCtx *runcontext.RunContext, provider deploy.Component
 	}
 	defaultDeployer, err := kubectl.NewDeployer(runCtx, labels, provider, k)
 	if err != nil {
-		return nil, fmt.Errorf("instantiating default kubectl deployer: %w", err)
+		return nil, true, fmt.Errorf("instantiating default kubectl deployer: %w", err)
 	}
-	return defaultDeployer, nil
+	return defaultDeployer, true, nil
 }
 
 func validateKubectlFlags(flags *v1.KubectlFlags, additional v1.KubectlFlags) error {

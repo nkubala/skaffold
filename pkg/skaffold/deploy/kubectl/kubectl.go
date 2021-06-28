@@ -32,7 +32,6 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
-	deployerr "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/error"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
@@ -334,7 +333,7 @@ func (k *Deployer) renderManifests(ctx context.Context, out io.Writer, builds []
 
 	debugHelpersRegistry, err := config.GetDebugHelpersRegistry(k.globalConfig)
 	if err != nil {
-		return nil, deployerr.DebugHelperRetrieveErr(fmt.Errorf("retrieving debug helpers registry: %w", err))
+		return nil, debug.DebugHelperRetrieveErr(fmt.Errorf("retrieving debug helpers registry: %w", err))
 	}
 
 	manifests, err := k.readManifests(ctx, offline)

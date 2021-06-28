@@ -96,11 +96,13 @@ They are tagged and referenced by a unique, local only, tag instead.
 See https://skaffold.dev/docs/pipeline-stages/taggers/#how-tagging-works`)
 	}
 
-	// Check that the cluster is reachable.
-	// This gives a better error message when the cluster can't
-	// be reached.
-	if err := failIfClusterIsNotReachable(); err != nil {
-		return fmt.Errorf("unable to connect to Kubernetes: %w", err)
+	if !r.localDeploy {
+		// Check that the cluster is reachable.
+		// This gives a better error message when the cluster can't
+		// be reached.
+		if err := failIfClusterIsNotReachable(); err != nil {
+			return fmt.Errorf("unable to connect to Kubernetes: %w", err)
+		}
 	}
 
 	if len(localImages) > 0 && r.runCtx.Cluster.LoadImages {
@@ -141,6 +143,11 @@ See https://skaffold.dev/docs/pipeline-stages/taggers/#how-tagging-works`)
 	event.DeployComplete()
 	eventV2.TaskSucceeded(constants.Deploy)
 	r.runCtx.UpdateNamespaces(namespaces)
+
+	// TODO(nkubala): implement status checking for docker deployments using ContainerWait
+	if r.localDeploy {
+		return nil
+	}
 	sErr := r.deployer.GetStatusMonitor().Check(ctx, statusCheckOut)
 	return sErr
 }

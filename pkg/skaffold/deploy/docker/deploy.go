@@ -28,14 +28,21 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/access"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
+	dockerlog "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/docker/logger"
 	dockerutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
 	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/status"
 	pkgsync "github.com/GoogleContainerTools/skaffold/pkg/skaffold/sync"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 )
+
+type Config interface {
+	dockerutil.Config
+
+	GlobalConfig() string
+}
 
 type Deployer struct {
 	accessor access.Accessor
@@ -50,11 +57,7 @@ type Deployer struct {
 	network            string
 	once               sync.Once
 	debugAdapter       debug.Adapter
-	tracker            *ContainerTracker
-}
-
-type Config interface {
-	types.Config
+	tracker            *dockerlog.ContainerTracker
 }
 
 func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resources []*v1.PortForwardResource, provider deploy.ComponentProvider) (*Deployer, error) {
@@ -69,7 +72,7 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		}
 	}
 
-	tracker := NewContainerTracker()
+	tracker := dockerlog.NewContainerTracker()
 
 	return &Deployer{
 		cfg:                d,
@@ -81,10 +84,16 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 
 		debugAdapter: debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
 		accessor:     provider.Accessor.GetClusterlessAccessor(),
-		logger:       provider.Logger.GetClusterlessLogger(),
+		logger:       provider.Logger.GetClusterlessLogger(tracker),
 		debugger:     provider.Debugger.GetClusterlessDebugger(),
 		syncer:       provider.Syncer.GetClusterlessSyncer(),
 	}, nil
+}
+
+func (d *Deployer) TrackBuildArtifacts(artifacts []graph.Artifact) {
+	for _, artifact := range artifacts {
+		d.tracker.Add(artifact.ImageName, artifact.Tag)
+	}
 }
 
 func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Artifact) ([]string, error) {
@@ -142,4 +151,25 @@ func (d *Deployer) Cleanup(ctx context.Context, out io.Writer) error {
 func (d *Deployer) Render(context.Context, io.Writer, []graph.Artifact, bool, string) error {
 	// TODO(nkubala): implement
 	return errors.New("not implemented")
+}
+
+func (d *Deployer) GetAccessor() access.Accessor {
+	return d.accessor
+}
+
+func (d *Deployer) GetDebugger() debug.Debugger {
+	return d.debugger
+}
+
+func (d *Deployer) GetLogger() log.Logger {
+	return d.logger
+}
+
+func (d *Deployer) GetSyncer() pkgsync.Syncer {
+	return d.syncer
+}
+
+func (d *Deployer) GetStatusMonitor() status.Monitor {
+	// TODO(nkubala): don't use this directly
+	return &status.NoopMonitor{}
 }

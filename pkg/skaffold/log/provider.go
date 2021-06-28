@@ -19,13 +19,15 @@ package log
 import (
 	"sync"
 
+	dockerlog "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/docker/logger"
+	// "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/logger"
 )
 
 type Provider interface {
-	GetClusterlessLogger() Logger
+	GetClusterlessLogger(*dockerlog.ContainerTracker) Logger
 	GetKubernetesLogger(*kubernetes.ImageList) Logger
 	GetNoopLogger() Logger
 }
@@ -33,7 +35,7 @@ type Provider interface {
 type fullProvider struct {
 	tail bool
 
-	clusterlessLogger func() Logger
+	clusterlessLogger func(*dockerlog.ContainerTracker) Logger
 	kubernetesLogger  func(*kubernetes.ImageList) Logger
 	noopLogger        func() Logger
 }
@@ -43,12 +45,17 @@ var (
 	once     sync.Once
 )
 
-func NewLogProvider(config logger.Config, cli *kubectl.CLI) Provider {
+func NewLogProvider(config logger.Config /* dockerCfg types.Config,*/, cli *kubectl.CLI) Provider {
 	once.Do(func() {
 		provider = &fullProvider{
 			tail: config.Tail(),
-			clusterlessLogger: func() Logger {
-				return nil
+			clusterlessLogger: func(tracker *dockerlog.ContainerTracker) Logger {
+				// l, err := docker.NewLogger(tracker, dockerCfg)
+				l, err := dockerlog.NewLogger(tracker, nil)
+				if err != nil {
+					// TODO(nkubala): how to print warning here?
+				}
+				return l
 			},
 			kubernetesLogger: func(podSelector *kubernetes.ImageList) Logger {
 				return logger.NewLogAggregator(cli, podSelector, config)
@@ -61,8 +68,8 @@ func NewLogProvider(config logger.Config, cli *kubectl.CLI) Provider {
 	return provider
 }
 
-func (p *fullProvider) GetClusterlessLogger() Logger {
-	return p.clusterlessLogger()
+func (p *fullProvider) GetClusterlessLogger(t *dockerlog.ContainerTracker) Logger {
+	return p.clusterlessLogger(t)
 }
 
 func (p *fullProvider) GetKubernetesLogger(s *kubernetes.ImageList) Logger {
@@ -79,7 +86,7 @@ func (p *fullProvider) GetNoopLogger() Logger {
 // NoopProvider is used in tests
 type NoopProvider struct{}
 
-func (p *NoopProvider) GetClusterlessLogger() Logger {
+func (p *NoopProvider) GetClusterlessLogger(_ *dockerlog.ContainerTracker) Logger {
 	return &NoopLogger{}
 }
 

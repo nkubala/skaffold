@@ -93,7 +93,8 @@ func NewForConfig(runCtx *runcontext.RunContext) (*SkaffoldRunner, error) {
 		Syncer:   sync.NewSyncProvider(runCtx, kubectlCLI),
 	}
 
-	deployer, err = runner.GetDeployer(runCtx, provider, labeller.Labels())
+	var local bool
+	deployer, local, err = runner.GetDeployer(runCtx, provider, labeller.Labels())
 	if err != nil {
 		endTrace(instrumentation.TraceEndError(err))
 		return nil, fmt.Errorf("creating deployer: %w", err)
@@ -152,6 +153,7 @@ func NewForConfig(runCtx *runcontext.RunContext) (*SkaffoldRunner, error) {
 		runCtx:             runCtx,
 		intents:            intents,
 		isLocalImage:       isLocalImage,
+		localDeploy:        local,
 	}, nil
 }
 
