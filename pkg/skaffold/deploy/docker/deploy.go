@@ -28,7 +28,6 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/access"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
-	dockerlog "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/docker/logger"
 	dockerutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
@@ -57,7 +56,7 @@ type Deployer struct {
 	network            string
 	once               sync.Once
 	debugAdapter       debug.Adapter
-	tracker            *dockerlog.ContainerTracker
+	tracker            *dockerutil.ContainerTracker
 }
 
 func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resources []*v1.PortForwardResource, provider deploy.ComponentProvider) (*Deployer, error) {
@@ -72,7 +71,7 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		}
 	}
 
-	tracker := dockerlog.NewContainerTracker()
+	tracker := dockerutil.NewContainerTracker()
 
 	return &Deployer{
 		cfg:                d,

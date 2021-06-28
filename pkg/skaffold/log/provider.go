@@ -19,7 +19,7 @@ package log
 import (
 	"sync"
 
-	dockerlog "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/docker/logger"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	// "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
@@ -27,7 +27,7 @@ import (
 )
 
 type Provider interface {
-	GetClusterlessLogger(*dockerlog.ContainerTracker) Logger
+	GetClusterlessLogger(*docker.ContainerTracker) Logger
 	GetKubernetesLogger(*kubernetes.ImageList) Logger
 	GetNoopLogger() Logger
 }
@@ -35,7 +35,7 @@ type Provider interface {
 type fullProvider struct {
 	tail bool
 
-	clusterlessLogger func(*dockerlog.ContainerTracker) Logger
+	clusterlessLogger func(*docker.ContainerTracker) Logger
 	kubernetesLogger  func(*kubernetes.ImageList) Logger
 	noopLogger        func() Logger
 }
@@ -49,9 +49,9 @@ func NewLogProvider(config logger.Config /* dockerCfg types.Config,*/, cli *kube
 	once.Do(func() {
 		provider = &fullProvider{
 			tail: config.Tail(),
-			clusterlessLogger: func(tracker *dockerlog.ContainerTracker) Logger {
+			clusterlessLogger: func(tracker *docker.ContainerTracker) Logger {
 				// l, err := docker.NewLogger(tracker, dockerCfg)
-				l, err := dockerlog.NewLogger(tracker, nil)
+				l, err := docker.NewLogger(tracker, nil)
 				if err != nil {
 					// TODO(nkubala): how to print warning here?
 				}
@@ -68,7 +68,7 @@ func NewLogProvider(config logger.Config /* dockerCfg types.Config,*/, cli *kube
 	return provider
 }
 
-func (p *fullProvider) GetClusterlessLogger(t *dockerlog.ContainerTracker) Logger {
+func (p *fullProvider) GetClusterlessLogger(t *docker.ContainerTracker) Logger {
 	return p.clusterlessLogger(t)
 }
 
@@ -86,7 +86,7 @@ func (p *fullProvider) GetNoopLogger() Logger {
 // NoopProvider is used in tests
 type NoopProvider struct{}
 
-func (p *NoopProvider) GetClusterlessLogger(_ *dockerlog.ContainerTracker) Logger {
+func (p *NoopProvider) GetClusterlessLogger(_ *docker.ContainerTracker) Logger {
 	return &NoopLogger{}
 }
 
