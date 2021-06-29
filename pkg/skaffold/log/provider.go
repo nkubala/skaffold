@@ -19,7 +19,7 @@ package log
 import (
 	"sync"
 
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
+	docker "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/logger"
 	// "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"

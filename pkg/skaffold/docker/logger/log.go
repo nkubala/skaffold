@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package docker
+package logger
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	logstream "github.com/GoogleContainerTools/skaffold/pkg/skaffold/log/stream"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output"
@@ -33,15 +34,15 @@ import (
 type Logger struct {
 	out        io.Writer
 	tracker    *ContainerTracker
-	client     LocalDaemon
+	client     docker.LocalDaemon
 	outputLock sync.Mutex
 	muted      int32
 
 	muters map[string]chan bool
 }
 
-func NewLogger(tracker *ContainerTracker, cfg Config) (*Logger, error) {
-	cli, err := NewAPIClient(cfg)
+func NewLogger(tracker *ContainerTracker, cfg docker.Config) (*Logger, error) {
+	cli, err := docker.NewAPIClient(cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -51,7 +51,8 @@ func NewDebugProvider(debugConfig Config) Provider {
 	once.Do(func() {
 		provider = &fullProvider{
 			clusterlessDebugger: func() Debugger {
-				return nil
+				// TODO(nkubala): implement
+				return &NoopDebugger{}
 			},
 			kubernetesDebugger: func(podSelector *kubernetes.ImageList) Debugger {
 				if debugConfig.Mode() != config.RunModes.Debug {

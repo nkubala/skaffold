@@ -22,6 +22,7 @@ import (
 )
 
 type Provider interface {
+	GetClusterlessMonitor() Monitor
 	GetKubernetesMonitor(config status.Config) Monitor
 	GetNoopMonitor() Monitor
 }
@@ -33,6 +34,11 @@ type fullProvider struct {
 
 func NewMonitorProvider(l *label.DefaultLabeller) Provider {
 	return &fullProvider{k8sMonitor: make(map[string]Monitor), labeller: l}
+}
+
+func (p *fullProvider) GetClusterlessMonitor() Monitor {
+	// TODO(nkubala): implement
+	return &NoopMonitor{}
 }
 
 func (p *fullProvider) GetKubernetesMonitor(config status.Config) Monitor {
@@ -53,6 +59,10 @@ func (p *fullProvider) GetNoopMonitor() Monitor {
 
 // NoopProvider is used in tests
 type NoopProvider struct{}
+
+func (p *NoopProvider) GetClusterlessMonitor() Monitor {
+	return &NoopMonitor{}
+}
 
 func (p *NoopProvider) GetKubernetesMonitor(config status.Config) Monitor {
 	return &NoopMonitor{}
