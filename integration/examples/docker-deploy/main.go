@@ -7,7 +7,7 @@ import (
 
 func main() {
 	for {
-		fmt.Println("Hello asdf!")
+		fmt.Println("Hello Docker!")
 
 		time.Sleep(time.Second * 1)
 	}

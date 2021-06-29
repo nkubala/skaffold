@@ -20,14 +20,14 @@ import (
 	"sync"
 
 	docker "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/logger"
-	// "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/tracker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/logger"
 )
 
 type Provider interface {
-	GetClusterlessLogger(*docker.ContainerTracker) Logger
+	GetClusterlessLogger(*tracker.ContainerTracker) Logger
 	GetKubernetesLogger(*kubernetes.ImageList) Logger
 	GetNoopLogger() Logger
 }
@@ -35,7 +35,7 @@ type Provider interface {
 type fullProvider struct {
 	tail bool
 
-	clusterlessLogger func(*docker.ContainerTracker) Logger
+	clusterlessLogger func(*tracker.ContainerTracker) Logger
 	kubernetesLogger  func(*kubernetes.ImageList) Logger
 	noopLogger        func() Logger
 }
@@ -49,7 +49,7 @@ func NewLogProvider(config logger.Config /* dockerCfg types.Config,*/, cli *kube
 	once.Do(func() {
 		provider = &fullProvider{
 			tail: config.Tail(),
-			clusterlessLogger: func(tracker *docker.ContainerTracker) Logger {
+			clusterlessLogger: func(tracker *tracker.ContainerTracker) Logger {
 				// l, err := docker.NewLogger(tracker, dockerCfg)
 				l, err := docker.NewLogger(tracker, nil)
 				if err != nil {
@@ -68,7 +68,7 @@ func NewLogProvider(config logger.Config /* dockerCfg types.Config,*/, cli *kube
 	return provider
 }
 
-func (p *fullProvider) GetClusterlessLogger(t *docker.ContainerTracker) Logger {
+func (p *fullProvider) GetClusterlessLogger(t *tracker.ContainerTracker) Logger {
 	return p.clusterlessLogger(t)
 }
 
@@ -86,7 +86,7 @@ func (p *fullProvider) GetNoopLogger() Logger {
 // NoopProvider is used in tests
 type NoopProvider struct{}
 
-func (p *NoopProvider) GetClusterlessLogger(_ *docker.ContainerTracker) Logger {
+func (p *NoopProvider) GetClusterlessLogger(_ *tracker.ContainerTracker) Logger {
 	return &NoopLogger{}
 }
 

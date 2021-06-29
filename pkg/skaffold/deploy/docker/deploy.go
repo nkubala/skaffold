@@ -29,7 +29,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
 	dockerutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/logger"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/tracker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
 	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
@@ -57,7 +57,7 @@ type Deployer struct {
 	network            string
 	once               sync.Once
 	debugAdapter       debug.Adapter
-	tracker            *logger.ContainerTracker
+	tracker            *tracker.ContainerTracker
 }
 
 func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resources []*v1.PortForwardResource, provider deploy.ComponentProvider) (*Deployer, error) {
@@ -72,7 +72,7 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		}
 	}
 
-	tracker := logger.NewContainerTracker()
+	tracker := tracker.NewContainerTracker()
 
 	return &Deployer{
 		cfg:                d,
@@ -83,7 +83,7 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		tracker:            tracker,
 
 		debugAdapter: debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
-		accessor:     provider.Accessor.GetClusterlessAccessor(),
+		accessor:     provider.Accessor.GetClusterlessAccessor(tracker),
 		logger:       provider.Logger.GetClusterlessLogger(tracker),
 		debugger:     provider.Debugger.GetClusterlessDebugger(),
 		syncer:       provider.Syncer.GetClusterlessSyncer(),
@@ -118,6 +118,10 @@ func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Art
 		container, initContainers, err := d.debugAdapter.Transform(b.Tag, b.ImageName, builds)
 		if err != nil {
 			return nil, errors.Wrap(err, "applying debug transforms")
+		}
+		if d.cfg.UseCompose {
+			// TODO(nkubala): implement!
+			return nil, fmt.Errorf("docker compose not yet supported by skaffold")
 		}
 		id, err := d.client.Run(ctx, out, b.ImageName, b.Tag, d.network, d.pf[b.ImageName], container, initContainers)
 		if err != nil {

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/tracker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	logstream "github.com/GoogleContainerTools/skaffold/pkg/skaffold/log/stream"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/output"
@@ -33,7 +34,7 @@ import (
 
 type Logger struct {
 	out        io.Writer
-	tracker    *ContainerTracker
+	tracker    *tracker.ContainerTracker
 	client     docker.LocalDaemon
 	outputLock sync.Mutex
 	muted      int32
@@ -41,7 +42,7 @@ type Logger struct {
 	muters map[string]chan bool
 }
 
-func NewLogger(tracker *ContainerTracker, cfg docker.Config) (*Logger, error) {
+func NewLogger(tracker *tracker.ContainerTracker, cfg docker.Config) (*Logger, error) {
 	cli, err := docker.NewAPIClient(cfg)
 	if err != nil {
 		return nil, err
@@ -71,9 +72,9 @@ func (l *Logger) Start(ctx context.Context, out io.Writer, _ []string) error {
 			select {
 			case <-ctx.Done():
 				return
-			case id := <-l.tracker.notifier:
+			case id := <-l.tracker.GetNotifier():
 				l.muters[id] = make(chan bool, 1)
-				go l.streamLogsFromContainer(ctx, id, l.tracker.stoppers[id], l.muters[id])
+				go l.streamLogsFromContainer(ctx, id, l.tracker.StopperForId(id), l.muters[id])
 			}
 		}
 	}()
@@ -85,6 +86,7 @@ func (l *Logger) streamLogsFromContainer(ctx context.Context, id string, stopper
 	// headerColor := a.colorPicker.Pick(pod)
 	headerColor := output.Cyan
 	prefix := fmt.Sprintf("[%s]", id)
+
 	r, err := l.client.ContainerLogs(ctx, l.out, id, muter)
 	if err != nil {
 		return err
@@ -92,7 +94,7 @@ func (l *Logger) streamLogsFromContainer(ctx context.Context, id string, stopper
 
 	// TODO(nkubala): pod name?
 	if err := logstream.StreamRequest(ctx, l.out, headerColor, prefix, "docker-pod", id, stopper, &l.outputLock, l.IsMuted, r); err != nil {
-		logrus.Errorf("streaming request %s", err)
+		logrus.Errorf("streaming request: %s", err)
 	}
 
 	return nil

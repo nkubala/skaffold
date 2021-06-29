@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logger
+package tracker
 
 import (
 	"sync"
@@ -38,6 +38,14 @@ func NewContainerTracker() *ContainerTracker {
 		notifier:         make(chan string, 1),
 		stoppers:         make(map[string]chan bool),
 	}
+}
+
+func (t *ContainerTracker) GetNotifier() chan string {
+	return t.notifier
+}
+
+func (t *ContainerTracker) StopperForId(id string) chan bool {
+	return t.stoppers[id]
 }
 
 func (t *ContainerTracker) Reset() {

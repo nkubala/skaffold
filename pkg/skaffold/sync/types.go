@@ -25,9 +25,10 @@ import (
 type syncMap map[string][]string
 
 type Item struct {
-	Image  string
-	Copy   map[string][]string
-	Delete map[string][]string
+	Image    string
+	Artifact string
+	Copy     map[string][]string
+	Delete   map[string][]string
 }
 
 type Syncer interface {

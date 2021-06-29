@@ -184,7 +184,7 @@ func (a *LogAggregator) streamContainerLogs(ctx context.Context, pod *v1.Pod, co
 	headerColor := a.colorPicker.Pick(pod)
 	prefix := a.prefix(pod, container)
 	if err := logstream.StreamRequest(ctx, a.output, headerColor, prefix, pod.Name, container.Name, make(chan bool), &a.outputLock, a.IsMuted, tr); err != nil {
-		logrus.Errorf("streaming request %s", err)
+		logrus.Errorf("streaming request: %s", err)
 	}
 }
 

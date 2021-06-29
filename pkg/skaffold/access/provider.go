@@ -18,13 +18,15 @@ package access
 
 import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
+	docker "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/access"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/tracker"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/portforward"
 )
 
 type Provider interface {
-	GetClusterlessAccessor() Accessor
+	GetClusterlessAccessor(*tracker.ContainerTracker) Accessor
 	GetKubernetesAccessor(portforward.Config, *kubernetes.ImageList) Accessor
 	GetNoopAccessor() Accessor
 }
@@ -39,9 +41,9 @@ func NewAccessorProvider(labelConfig label.Config) Provider {
 	return &fullProvider{label: labelConfig, k8sAccessor: make(map[string]Accessor)}
 }
 
-func (p *fullProvider) GetClusterlessAccessor() Accessor {
+func (p *fullProvider) GetClusterlessAccessor(t *tracker.ContainerTracker) Accessor {
 	if p.clusterlessAccessor == nil {
-		p.clusterlessAccessor = &NoopAccessor{}
+		p.clusterlessAccessor = docker.NewAccessor(t)
 	}
 	return p.clusterlessAccessor
 }
@@ -70,7 +72,7 @@ func (p *fullProvider) GetNoopAccessor() Accessor {
 // NoopProvider is used in tests
 type NoopProvider struct{}
 
-func (p *NoopProvider) GetClusterlessAccessor() Accessor {
+func (p *NoopProvider) GetClusterlessAccessor(_ *tracker.ContainerTracker) Accessor {
 	return &NoopAccessor{}
 }
 

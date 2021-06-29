@@ -124,7 +124,7 @@ func TestSkaffoldDeployRenderOnly(t *testing.T) {
 			KubeContext: "does-not-exist",
 		}
 
-		deployer, err := runner.GetDeployer(runCtx, deploy.NoopComponentProvider, nil)
+		deployer, _, err := runner.GetDeployer(runCtx, deploy.NoopComponentProvider, nil)
 		t.RequireNoError(err)
 		r := SkaffoldRunner{
 			runCtx:     runCtx,

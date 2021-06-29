@@ -36,6 +36,8 @@ func StreamRequest(ctx context.Context, out io.Writer, headerColor output.Color,
 		case <-ctx.Done():
 			logrus.Infof("%s interrupted", prefix)
 			return nil
+		case <-stopper:
+			return nil
 		default:
 			// Read up to newline
 			line, err := r.ReadString('\n')
