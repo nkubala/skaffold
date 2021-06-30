@@ -16,8 +16,8 @@ deploy:
   docker:
     images: [react-reload]
     useCompose: false
-# portForward:
-# - resourceType: Container
-#   resourceName: react-reload
-#   port: 8080
-#   localPort: 9000
+portForward:
+- resourceType: Container
+  resourceName: react-reload
+  port: 8080
+  localPort: 9000

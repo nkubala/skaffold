@@ -12,16 +12,21 @@ import (
 
 func TestPrintLogLine(t *testing.T) {
 	testutil.Run(t, "verify lines are not intermixed", func(t *testutil.T) {
-		var buf bytes.Buffer
+		var (
+			buf  bytes.Buffer
+			wg   sync.WaitGroup
+			lock sync.Mutex
 
-		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
+			linesPerGroup = 100
+			groups        = 5
+		)
+
+		for i := 0; i < groups; i++ {
 			wg.Add(1)
 
 			go func() {
-				for i := 0; i < 100; i++ {
-					// printLogLine(output.Default, &buf, func() bool { return false }, &sync.Mutex{}, "", output.Default.Sprintf("%s ", "PREFIX")+"TEXT\n")
-					printLogLine(output.Default, &buf, func() bool { return false }, &sync.Mutex{}, "PREFIX", "TEXT\n")
+				for i := 0; i < linesPerGroup; i++ {
+					printLogLine(output.Default, &buf, func() bool { return false }, &lock, "PREFIX", "TEXT\n")
 				}
 				wg.Done()
 			}()
@@ -29,7 +34,7 @@ func TestPrintLogLine(t *testing.T) {
 		wg.Wait()
 
 		lines := strings.Split(buf.String(), "\n")
-		for i := 0; i < 5*100; i++ {
+		for i := 0; i < groups*linesPerGroup; i++ {
 			t.CheckDeepEqual("PREFIX TEXT", lines[i])
 		}
 	})

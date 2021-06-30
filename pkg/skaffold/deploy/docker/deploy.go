@@ -22,6 +22,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
@@ -41,6 +42,7 @@ import (
 type Config interface {
 	dockerutil.Config
 
+	PortForwardResources() []*v1.PortForwardResource
 	GlobalConfig() string
 }
 
@@ -65,6 +67,8 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 	if err != nil {
 		return nil, err
 	}
+
+	// Accessed resources are exposed through ports exposed on the created docker network.
 	pf := make(map[string][]*v1.PortForwardResource)
 	for _, r := range resources {
 		if r.Type == "Container" {
@@ -79,11 +83,11 @@ func NewDeployer(cfg Config, labels map[string]string, d *v1.DockerDeploy, resou
 		client:             client,
 		pf:                 pf,
 		deployedContainers: make(map[string]string),
-		network:            "skaffold-network",
+		network:            fmt.Sprintf("skaffold-network-%s", uuid.New().String()),
 		tracker:            tracker,
 
 		debugAdapter: debug.NewAdapter(cfg.GlobalConfig(), cfg.GetInsecureRegistries()),
-		accessor:     provider.Accessor.GetClusterlessAccessor(tracker),
+		accessor:     provider.Accessor.GetNoopAccessor(),
 		logger:       provider.Logger.GetClusterlessLogger(tracker),
 		debugger:     provider.Debugger.GetClusterlessDebugger(),
 		syncer:       provider.Syncer.GetClusterlessSyncer(),

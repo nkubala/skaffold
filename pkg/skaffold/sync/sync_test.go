@@ -73,7 +73,8 @@ func TestNewSyncItem(t *testing.T) {
 				Added: []string{"index.html"},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					"index.html": {"index.html"},
 				},
@@ -125,7 +126,8 @@ func TestNewSyncItem(t *testing.T) {
 				Deleted:  []string{filepath.Join("node", "package.json")},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("node", "server.js"):  {"server.js"},
 					filepath.Join("node", "index.html"): {"index.html"},
@@ -157,7 +159,8 @@ func TestNewSyncItem(t *testing.T) {
 			},
 			workingDir: "/",
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("node", "src/app/server/server.js"): {"/src/app/server/server.js"},
 				},
@@ -187,7 +190,8 @@ func TestNewSyncItem(t *testing.T) {
 				Deleted:  []string{filepath.Join("node", "package.json")},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("node", "server.js"):  {"server.js"},
 					filepath.Join("node", "index.html"): {"index.html"},
@@ -292,7 +296,8 @@ func TestNewSyncItem(t *testing.T) {
 				Added: []string{filepath.Join("dir1", "dir2", "node.js")},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("dir1", "dir2", "node.js"): {"/some/dir1/dir2/node.js"},
 				},
@@ -321,7 +326,8 @@ func TestNewSyncItem(t *testing.T) {
 				Added: []string{filepath.Join("dir1", "dir2/node.js")},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("dir1", "dir2/node.js"): {"/some/dir/dir2/node.js"},
 				},
@@ -351,7 +357,8 @@ func TestNewSyncItem(t *testing.T) {
 				Added: []string{filepath.Join("dir1", "dir2", "node.js")},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("dir1", "dir2", "node.js"): {"/some/dir2/node.js", "/some/dir1/dir2/node.js"},
 				},
@@ -384,7 +391,8 @@ func TestNewSyncItem(t *testing.T) {
 				},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("dir1a", "dir2", "dir3", "node.js"): {"/tstar/dir2/dir3/node.js"},
 					filepath.Join("dir1b", "dir1", "node.js"):         {"/dstar/dir1b/dir1/node.js"},
@@ -414,7 +422,8 @@ func TestNewSyncItem(t *testing.T) {
 			},
 			dependencies: map[string][]string{"index.html": {"/index.html"}},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					"index.html": {"/index.html"},
 				},
@@ -502,7 +511,8 @@ func TestNewSyncItem(t *testing.T) {
 			},
 			dependencies: map[string][]string{"index.html": {"/index.html"}, "server.js": {"/server.js"}},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("node", "server.js"):  {"/server.js"},
 					filepath.Join("node", "index.html"): {"/index.html"},
@@ -530,7 +540,8 @@ func TestNewSyncItem(t *testing.T) {
 			dependencies: map[string][]string{filepath.Join("src", "app", "server", "server.js"): {"/dest/server.js"}},
 			workingDir:   "/",
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("node", "src", "app", "server", "server.js"): {"/dest/server.js"},
 				},
@@ -557,7 +568,8 @@ func TestNewSyncItem(t *testing.T) {
 			},
 			dependencies: map[string][]string{"index.html": {"/index.html"}, "server.js": {"/server.js"}},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("node", "server.js"):  {"/server.js"},
 					filepath.Join("node", "index.html"): {"/index.html"},
@@ -634,7 +646,8 @@ func TestNewSyncItem(t *testing.T) {
 			},
 			dependencies: map[string][]string{filepath.Join("dir1", "dir2", "node.js"): {"/some/node.js"}},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					filepath.Join("dir1", "dir2", "node.js"): {"/some/node.js"},
 				},
@@ -675,7 +688,8 @@ func TestNewSyncItem(t *testing.T) {
 				}`,
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					"file.go": {"/some/file.go"},
 				},
@@ -740,7 +754,8 @@ func TestNewSyncItem(t *testing.T) {
 				},
 			},
 			expected: &Item{
-				Image: "test:123",
+				Artifact: "test",
+				Image:    "test:123",
 				Copy: map[string][]string{
 					"file.class": {"/some/file.class"},
 				},

@@ -3,6 +3,6 @@ import '../styles/HelloWorld.css';
 
 export const HelloWorld = () => (
 	<div>
-		<h1>Hello sync!</h1>
+		<h1>Hello World!</h1>
 	</div>
 );
