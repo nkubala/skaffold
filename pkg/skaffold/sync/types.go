@@ -34,9 +34,16 @@ type Syncer interface {
 	Sync(context.Context, *Item) error
 }
 
-type podSyncer struct {
+type PodSyncer struct {
 	kubectl *pkgkubectl.CLI
 	config  Config
+}
+
+func NewPodSyncer(cli *pkgkubectl.CLI, config Config) *PodSyncer {
+	return &PodSyncer{
+		kubectl: cli,
+		config:  config,
+	}
 }
 
 type Config interface {

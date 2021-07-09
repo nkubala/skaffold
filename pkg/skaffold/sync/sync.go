@@ -252,7 +252,7 @@ func matchSyncRules(syncRules []*latestV1.SyncRule, relPath, containerWd string)
 	return dsts, nil
 }
 
-func (s *podSyncer) Sync(ctx context.Context, item *Item) error {
+func (s *PodSyncer) Sync(ctx context.Context, item *Item) error {
 	if len(item.Copy) > 0 {
 		logrus.Infoln("Copying files:", item.Copy, "to", item.Image)
 
