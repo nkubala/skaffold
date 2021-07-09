@@ -28,6 +28,7 @@ import (
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/client"
@@ -38,6 +39,10 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/warnings"
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
+
+var getNoopProvider = func(config component.Config, labeller *label.DefaultLabeller) component.Provider {
+	return component.NoopComponentProvider{}
+}
 
 var testBuilds = []graph.Artifact{{
 	ImageName: "skaffold-helm",
@@ -473,8 +478,9 @@ func TestNewDeployer(t *testing.T) {
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&util.DefaultExecCommand, testutil.CmdRunWithOutput("helm version --client", test.helmVersion))
+			t.Override(&GetProvider, getNoopProvider)
 
-			_, err := NewDeployer(&helmConfig{}, nil, component.NoopComponentProvider{}, &testDeployConfig)
+			_, err := NewDeployer(&helmConfig{}, &label.DefaultLabeller{}, &testDeployConfig)
 			t.CheckError(test.shouldErr, err)
 		})
 	}
@@ -1000,6 +1006,7 @@ func TestHelmDeploy(t *testing.T) {
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&client.Client, deployutil.MockK8sClient)
+			t.Override(&GetProvider, getNoopProvider)
 			fakeWarner := &warnings.Collect{}
 			env := test.env
 			if env == nil {
@@ -1009,12 +1016,13 @@ func TestHelmDeploy(t *testing.T) {
 			t.Override(&util.OSEnviron, func() []string { return env })
 			t.Override(&util.DefaultExecCommand, test.commands)
 			t.Override(&osExecutable, func() (string, error) { return "SKAFFOLD-BINARY", nil })
+			t.Override(&GetProvider, getNoopProvider)
 
 			deployer, err := NewDeployer(&helmConfig{
 				namespace:  test.namespace,
 				force:      test.force,
 				configFile: "test.yaml",
-			}, nil, component.NoopComponentProvider{}, &test.helm)
+			}, &label.DefaultLabeller{}, &test.helm)
 			t.RequireNoError(err)
 
 			if test.configure != nil {
@@ -1088,10 +1096,11 @@ func TestHelmCleanup(t *testing.T) {
 			t.Override(&warnings.Printf, fakeWarner.Warnf)
 			t.Override(&util.OSEnviron, func() []string { return []string{"FOO=FOOBAR"} })
 			t.Override(&util.DefaultExecCommand, test.commands)
+			t.Override(&GetProvider, getNoopProvider)
 
 			deployer, err := NewDeployer(&helmConfig{
 				namespace: test.namespace,
-			}, nil, component.NoopComponentProvider{}, &test.helm)
+			}, &label.DefaultLabeller{}, &test.helm)
 			t.RequireNoError(err)
 
 			deployer.Cleanup(context.Background(), ioutil.Discard)
@@ -1186,6 +1195,7 @@ func TestHelmDependencies(t *testing.T) {
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&util.DefaultExecCommand, testutil.CmdRunWithOutput("helm version --client", version30))
+			t.Override(&GetProvider, getNoopProvider)
 			tmpDir := t.NewTempDir().Touch(test.files...)
 			var local, remote string
 			if test.remote {
@@ -1194,7 +1204,7 @@ func TestHelmDependencies(t *testing.T) {
 				local = tmpDir.Root()
 			}
 
-			deployer, err := NewDeployer(&helmConfig{}, nil, component.NoopComponentProvider{}, &latestV1.HelmDeploy{
+			deployer, err := NewDeployer(&helmConfig{}, &label.DefaultLabeller{}, &latestV1.HelmDeploy{
 				Releases: []latestV1.HelmRelease{{
 					Name:                  "skaffold-helm",
 					ChartPath:             local,
@@ -1457,9 +1467,10 @@ func TestHelmRender(t *testing.T) {
 
 			t.Override(&util.OSEnviron, func() []string { return append([]string{"FOO=FOOBAR"}, test.env...) })
 			t.Override(&util.DefaultExecCommand, test.commands)
+			t.Override(&GetProvider, getNoopProvider)
 			deployer, err := NewDeployer(&helmConfig{
 				namespace: test.namespace,
-			}, nil, component.NoopComponentProvider{}, &test.helm)
+			}, &label.DefaultLabeller{}, &test.helm)
 			t.RequireNoError(err)
 			err = deployer.Render(context.Background(), ioutil.Discard, test.builds, true, file)
 			t.CheckError(test.shouldErr, err)
@@ -1528,7 +1539,7 @@ func TestGenerateSkaffoldDebugFilter(t *testing.T) {
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&util.DefaultExecCommand, testutil.CmdRunWithOutput("helm version --client", version31))
-			h, err := NewDeployer(&helmConfig{}, nil, component.NoopComponentProvider{}, &testDeployConfig)
+			h, err := NewDeployer(&helmConfig{}, &label.DefaultLabeller{}, &testDeployConfig)
 			t.RequireNoError(err)
 			result := h.generateSkaffoldDebugFilter(test.buildFile)
 			t.CheckDeepEqual(test.result, result)

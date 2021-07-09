@@ -39,7 +39,6 @@ import (
 // ComponentProvider distributes various sub-components to a Deployer
 type ComponentProvider struct {
 	config      Config
-	cli         *kubectl.CLI
 	k8sAccessor map[string]access.Accessor
 	k8sMonitor  map[string]status.Monitor // keyed on KubeContext. TODO: make KubeContext a struct type.
 	labeller    *label.DefaultLabeller
@@ -53,7 +52,7 @@ type Config interface {
 	GetNamespaces() []string
 }
 
-func NewComponentProvider(config Config, labeller *label.DefaultLabeller) ComponentProvider {
+func NewComponentProvider(config Config, labeller *label.DefaultLabeller) Provider {
 	return ComponentProvider{
 		config:      config,
 		labeller:    labeller,

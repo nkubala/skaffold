@@ -34,6 +34,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	deployerr "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/error"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
@@ -48,6 +49,9 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/sync"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 )
+
+// GetProvider can be overridden during testing
+var GetProvider = component.NewComponentProvider
 
 // Deployer deploys workflows using kubectl CLI.
 type Deployer struct {
@@ -76,7 +80,7 @@ type Deployer struct {
 
 // NewDeployer returns a new Deployer for a DeployConfig filled
 // with the needed configuration for `kubectl apply`
-func NewDeployer(cfg Config, labels map[string]string, provider component.Provider, d *latestV1.KubectlDeploy) (*Deployer, error) {
+func NewDeployer(cfg Config, labeller *label.DefaultLabeller, d *latestV1.KubectlDeploy) (*Deployer, error) {
 	defaultNamespace := ""
 	if d.DefaultNamespace != nil {
 		var err error
@@ -88,6 +92,7 @@ func NewDeployer(cfg Config, labels map[string]string, provider component.Provid
 
 	podSelector := kubernetes.NewImageList()
 	kubectl := NewCLI(cfg, d.Flags, defaultNamespace)
+	provider := GetProvider(cfg, labeller)
 
 	return &Deployer{
 		KubectlDeploy:      d,
@@ -104,7 +109,7 @@ func NewDeployer(cfg Config, labels map[string]string, provider component.Provid
 		kubectl:            kubectl,
 		insecureRegistries: cfg.GetInsecureRegistries(),
 		skipRender:         cfg.SkipRender(),
-		labels:             labels,
+		labels:             labeller.Labels(),
 		hydratedManifests:  cfg.HydratedManifests(),
 	}, nil
 }

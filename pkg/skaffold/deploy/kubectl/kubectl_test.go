@@ -29,6 +29,7 @@ import (
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/client"
@@ -38,6 +39,10 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
+
+var getNoopProvider = func(config component.Config, labeller *label.DefaultLabeller) component.Provider {
+	return component.NoopComponentProvider{}
+}
 
 func TestKubectlDeploy(t *testing.T) {
 	tests := []struct {
@@ -225,6 +230,7 @@ func TestKubectlDeploy(t *testing.T) {
 			t.SetEnvs(test.envs)
 			t.Override(&util.DefaultExecCommand, test.commands)
 			t.Override(&client.Client, deployutil.MockK8sClient)
+			t.Override(&GetProvider, getNoopProvider)
 			t.NewTempDir().
 				Write("deployment.yaml", DeploymentWebYAML).
 				Touch("empty.ignored").
@@ -245,7 +251,7 @@ func TestKubectlDeploy(t *testing.T) {
 				},
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{
 					Namespace: skaffoldNamespaceOption}},
-			}, nil, component.NoopComponentProvider{}, &test.kubectl)
+			}, &label.DefaultLabeller{}, &test.kubectl)
 			t.RequireNoError(err)
 
 			_, err = k.Deploy(context.Background(), ioutil.Discard, test.builds)
@@ -312,6 +318,7 @@ func TestKubectlCleanup(t *testing.T) {
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&util.DefaultExecCommand, test.commands)
+			t.Override(&GetProvider, getNoopProvider)
 			t.NewTempDir().
 				Write("deployment.yaml", DeploymentWebYAML).
 				Chdir()
@@ -319,7 +326,7 @@ func TestKubectlCleanup(t *testing.T) {
 			k, err := NewDeployer(&kubectlConfig{
 				workingDir: ".",
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{Namespace: TestNamespace}},
-			}, nil, component.NoopComponentProvider{}, &test.kubectl)
+			}, &label.DefaultLabeller{}, &test.kubectl)
 			t.RequireNoError(err)
 
 			err = k.Cleanup(context.Background(), ioutil.Discard)
@@ -359,6 +366,7 @@ func TestKubectlDeployerRemoteCleanup(t *testing.T) {
 	for _, test := range tests {
 		testutil.Run(t, "cleanup remote", func(t *testutil.T) {
 			t.Override(&util.DefaultExecCommand, test.commands)
+			t.Override(&GetProvider, getNoopProvider)
 			t.NewTempDir().
 				Write("deployment.yaml", DeploymentWebYAML).
 				Chdir()
@@ -366,7 +374,7 @@ func TestKubectlDeployerRemoteCleanup(t *testing.T) {
 			k, err := NewDeployer(&kubectlConfig{
 				workingDir: ".",
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{Namespace: TestNamespace}},
-			}, nil, component.NoopComponentProvider{}, &test.kubectl)
+			}, &label.DefaultLabeller{}, &test.kubectl)
 			t.RequireNoError(err)
 
 			err = k.Cleanup(context.Background(), ioutil.Discard)
@@ -379,6 +387,7 @@ func TestKubectlDeployerRemoteCleanup(t *testing.T) {
 func TestKubectlRedeploy(t *testing.T) {
 	testutil.Run(t, "", func(t *testutil.T) {
 		t.Override(&client.Client, deployutil.MockK8sClient)
+		t.Override(&GetProvider, getNoopProvider)
 		tmpDir := t.NewTempDir().
 			Write("deployment-web.yaml", DeploymentWebYAML).
 			Write("deployment-app.yaml", DeploymentAppYAML)
@@ -401,7 +410,7 @@ func TestKubectlRedeploy(t *testing.T) {
 				Enabled: true,
 				Delay:   0 * time.Millisecond,
 				Max:     10 * time.Second},
-		}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{Manifests: []string{tmpDir.Path("deployment-app.yaml"), tmpDir.Path("deployment-web.yaml")}})
+		}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{Manifests: []string{tmpDir.Path("deployment-app.yaml"), tmpDir.Path("deployment-web.yaml")}})
 		t.RequireNoError(err)
 
 		// Deploy one manifest
@@ -430,6 +439,7 @@ func TestKubectlRedeploy(t *testing.T) {
 func TestKubectlWaitForDeletions(t *testing.T) {
 	testutil.Run(t, "", func(t *testutil.T) {
 		t.Override(&client.Client, deployutil.MockK8sClient)
+		t.Override(&GetProvider, getNoopProvider)
 		tmpDir := t.NewTempDir().Write("deployment-web.yaml", DeploymentWebYAML)
 
 		t.Override(&util.DefaultExecCommand, testutil.
@@ -466,7 +476,7 @@ func TestKubectlWaitForDeletions(t *testing.T) {
 				Delay:   0 * time.Millisecond,
 				Max:     10 * time.Second,
 			},
-		}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{Manifests: []string{tmpDir.Path("deployment-web.yaml")}})
+		}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{Manifests: []string{tmpDir.Path("deployment-web.yaml")}})
 		t.RequireNoError(err)
 
 		var out bytes.Buffer
@@ -496,6 +506,7 @@ func TestKubectlWaitForDeletionsFails(t *testing.T) {
 				]
 			}`),
 		)
+		t.Override(&GetProvider, getNoopProvider)
 
 		deployer, err := NewDeployer(&kubectlConfig{
 			workingDir: tmpDir.Root(),
@@ -504,7 +515,7 @@ func TestKubectlWaitForDeletionsFails(t *testing.T) {
 				Delay:   10 * time.Second,
 				Max:     100 * time.Millisecond,
 			},
-		}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{Manifests: []string{tmpDir.Path("deployment-web.yaml")}})
+		}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{Manifests: []string{tmpDir.Path("deployment-web.yaml")}})
 		t.RequireNoError(err)
 
 		_, err = deployer.Deploy(context.Background(), ioutil.Discard, []graph.Artifact{
@@ -564,8 +575,9 @@ func TestDependencies(t *testing.T) {
 				Touch("01/a.yaml", "01/b.yaml").
 				Touch("00/b.yaml", "00/a.yaml").
 				Chdir()
+			t.Override(&GetProvider, getNoopProvider)
 
-			k, err := NewDeployer(&kubectlConfig{}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{Manifests: test.manifests})
+			k, err := NewDeployer(&kubectlConfig{}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{Manifests: test.manifests})
 			t.RequireNoError(err)
 
 			dependencies, err := k.Dependencies()
@@ -675,13 +687,14 @@ spec:
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			tmpDir := t.NewTempDir().Write("deployment.yaml", test.input)
+			t.Override(&GetProvider, getNoopProvider)
 			t.Override(&util.DefaultExecCommand, testutil.
 				CmdRunOut("kubectl version --client -ojson", KubectlVersion112).
 				AndRunOut("kubectl --context kubecontext create --dry-run -oyaml -f "+tmpDir.Path("deployment.yaml"), test.input))
 			deployer, err := NewDeployer(&kubectlConfig{
 				workingDir:  ".",
 				defaultRepo: "gcr.io/project",
-			}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+			}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 				Manifests: []string{tmpDir.Path("deployment.yaml")},
 			})
 			t.RequireNoError(err)
@@ -717,6 +730,7 @@ func TestGCSManifests(t *testing.T) {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&client.Client, deployutil.MockK8sClient)
 			t.Override(&util.DefaultExecCommand, test.commands)
+			t.Override(&GetProvider, getNoopProvider)
 			if err := os.MkdirAll(manifest.ManifestTmpDir, os.ModePerm); err != nil {
 				t.Fatal(err)
 			}
@@ -727,7 +741,7 @@ func TestGCSManifests(t *testing.T) {
 				workingDir: ".",
 				skipRender: test.skipRender,
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{Namespace: TestNamespace}},
-			}, nil, component.NoopComponentProvider{}, &test.kubectl)
+			}, &label.DefaultLabeller{}, &test.kubectl)
 			t.RequireNoError(err)
 
 			_, err = k.Deploy(context.Background(), ioutil.Discard, nil)

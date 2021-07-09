@@ -38,6 +38,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kustomize"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
@@ -73,6 +74,8 @@ const (
 	kustomizeVersionRegexP = `{Version:(kustomize/)?(\S+) GitCommit:\S+ BuildDate:\S+ GoOs:\S+ GoArch:\S+}`
 )
 
+var GetProvider = component.NewComponentProvider // For testing
+
 // Deployer deploys workflows with kpt CLI
 type Deployer struct {
 	*latestV1.KptDeploy
@@ -105,9 +108,10 @@ type Config interface {
 }
 
 // NewDeployer generates a new Deployer object contains the kptDeploy schema.
-func NewDeployer(cfg Config, labels map[string]string, provider component.Provider, d *latestV1.KptDeploy) *Deployer {
+func NewDeployer(cfg Config, labeller *label.DefaultLabeller, d *latestV1.KptDeploy) *Deployer {
 	podSelector := kubernetes.NewImageList()
 	kubectl := pkgkubectl.NewCLI(cfg, cfg.GetKubeNamespace())
+	provider := GetProvider(cfg, labeller)
 
 	return &Deployer{
 		KptDeploy:          d,
@@ -119,7 +123,7 @@ func NewDeployer(cfg Config, labels map[string]string, provider component.Provid
 		statusMonitor:      provider.GetKubernetesMonitor(cfg),
 		syncer:             provider.GetKubernetesSyncer(kubectl),
 		insecureRegistries: cfg.GetInsecureRegistries(),
-		labels:             labels,
+		labels:             labeller.Labels(),
 		globalConfig:       cfg.GlobalConfig(),
 		hasKustomization:   hasKustomization,
 		kubeContext:        cfg.GetKubeContext(),

@@ -22,11 +22,11 @@ import (
 	"strconv"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/helm"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kpt"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kustomize"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/status"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/runner/runcontext"
 	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
@@ -56,9 +56,9 @@ func (d *deployerCtx) StatusCheck() *bool {
 }
 
 // GetDeployer creates a deployer from a given RunContext and deploy pipeline definitions.
-func GetDeployer(runCtx *runcontext.RunContext, provider component.Provider, labels map[string]string) (deploy.Deployer, error) {
+func GetDeployer(runCtx *runcontext.RunContext, labeller *label.DefaultLabeller) (deploy.Deployer, error) {
 	if runCtx.Opts.Apply {
-		return getDefaultDeployer(runCtx, provider, labels)
+		return getDefaultDeployer(runCtx, labeller)
 	}
 
 	deployerCfg := runCtx.Deployers()
@@ -67,7 +67,7 @@ func GetDeployer(runCtx *runcontext.RunContext, provider component.Provider, lab
 	for _, d := range deployerCfg {
 		dCtx := &deployerCtx{runCtx, d}
 		if d.HelmDeploy != nil {
-			h, err := helm.NewDeployer(dCtx, labels, provider, d.HelmDeploy)
+			h, err := helm.NewDeployer(dCtx, labeller, d.HelmDeploy)
 			if err != nil {
 				return nil, err
 			}
@@ -75,12 +75,12 @@ func GetDeployer(runCtx *runcontext.RunContext, provider component.Provider, lab
 		}
 
 		if d.KptDeploy != nil {
-			deployer := kpt.NewDeployer(dCtx, labels, provider, d.KptDeploy)
+			deployer := kpt.NewDeployer(dCtx, labeller, d.KptDeploy)
 			deployers = append(deployers, deployer)
 		}
 
 		if d.KubectlDeploy != nil {
-			deployer, err := kubectl.NewDeployer(dCtx, labels, provider, d.KubectlDeploy)
+			deployer, err := kubectl.NewDeployer(dCtx, labeller, d.KubectlDeploy)
 			if err != nil {
 				return nil, err
 			}
@@ -88,7 +88,7 @@ func GetDeployer(runCtx *runcontext.RunContext, provider component.Provider, lab
 		}
 
 		if d.KustomizeDeploy != nil {
-			deployer, err := kustomize.NewDeployer(dCtx, labels, provider, d.KustomizeDeploy)
+			deployer, err := kustomize.NewDeployer(dCtx, labeller, d.KustomizeDeploy)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +112,7 @@ The default deployer will honor a select set of deploy configuration from an exi
 For a multi-config project, we do not currently support resolving conflicts between differing sets of this deploy configuration.
 Therefore, in this function we do implicit validation of the provided configuration, and fail if any conflict cannot be resolved.
 */
-func getDefaultDeployer(runCtx *runcontext.RunContext, provider component.Provider, labels map[string]string) (deploy.Deployer, error) {
+func getDefaultDeployer(runCtx *runcontext.RunContext, labeller *label.DefaultLabeller) (deploy.Deployer, error) {
 	deployCfgs := runCtx.DeployConfigs()
 
 	var kFlags *v1.KubectlFlags
@@ -170,7 +170,7 @@ func getDefaultDeployer(runCtx *runcontext.RunContext, provider component.Provid
 		Flags:            *kFlags,
 		DefaultNamespace: defaultNamespace,
 	}
-	defaultDeployer, err := kubectl.NewDeployer(runCtx, labels, provider, k)
+	defaultDeployer, err := kubectl.NewDeployer(runCtx, labeller, k)
 	if err != nil {
 		return nil, fmt.Errorf("instantiating default kubectl deployer: %w", err)
 	}

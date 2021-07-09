@@ -81,6 +81,9 @@ var (
 
 	// osExecutable allows for replacing the skaffold binary for testing purposes
 	osExecutable = os.Executable
+
+	// GetProvider can be overridden during testing
+	GetProvider = component.NewComponentProvider
 )
 
 // Deployer deploys workflows using the helm CLI
@@ -124,7 +127,7 @@ type Config interface {
 }
 
 // NewDeployer returns a configured Deployer.  Returns an error if current version of helm is less than 3.0.0.
-func NewDeployer(cfg Config, labels map[string]string, provider component.Provider, h *latestV1.HelmDeploy) (*Deployer, error) {
+func NewDeployer(cfg Config, labeller *label.DefaultLabeller, h *latestV1.HelmDeploy) (*Deployer, error) {
 	hv, err := binVer()
 	if err != nil {
 		return nil, versionGetErr(err)
@@ -145,6 +148,7 @@ func NewDeployer(cfg Config, labels map[string]string, provider component.Provid
 
 	podSelector := kubernetes.NewImageList()
 	kubectl := pkgkubectl.NewCLI(cfg, cfg.GetKubeNamespace())
+	provider := GetProvider(cfg, labeller)
 
 	return &Deployer{
 		HelmDeploy:     h,
@@ -161,7 +165,7 @@ func NewDeployer(cfg Config, labels map[string]string, provider component.Provid
 		namespace:      cfg.GetKubeNamespace(),
 		forceDeploy:    cfg.ForceDeploy(),
 		configFile:     cfg.ConfigurationFile(),
-		labels:         labels,
+		labels:         labeller.Labels(),
 		bV:             hv,
 		enableDebug:    cfg.Mode() == config.RunModes.Debug,
 		isMultiConfig:  cfg.IsMultiConfig(),

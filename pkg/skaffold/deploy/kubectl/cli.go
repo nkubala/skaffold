@@ -27,6 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	deployerr "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/error"
 	deploy "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/types"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/instrumentation"
@@ -54,6 +55,7 @@ type Config interface {
 	kloader.Config
 	portforward.Config
 	deploy.Config
+	component.Config
 	ForceDeploy() bool
 	WaitForDeletions() config.WaitForDeletions
 	Mode() config.RunMode

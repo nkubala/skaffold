@@ -28,6 +28,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/client"
@@ -36,6 +37,10 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
+
+var getNoopProvider = func(config component.Config, labeller *label.DefaultLabeller) component.Provider {
+	return component.NoopComponentProvider{}
+}
 
 func TestKustomizeDeploy(t *testing.T) {
 	tests := []struct {
@@ -172,6 +177,7 @@ func TestKustomizeDeploy(t *testing.T) {
 			t.Override(&util.DefaultExecCommand, test.commands)
 			t.Override(&client.Client, deployutil.MockK8sClient)
 			t.Override(&KustomizeBinaryCheck, func() bool { return test.kustomizeCmdPresent })
+			t.Override(&GetProvider, getNoopProvider)
 			t.NewTempDir().
 				Chdir()
 
@@ -190,7 +196,7 @@ func TestKustomizeDeploy(t *testing.T) {
 				},
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{
 					Namespace: skaffoldNamespaceOption,
-				}}}, nil, component.NoopComponentProvider{}, &test.kustomize)
+				}}}, &label.DefaultLabeller{}, &test.kustomize)
 			t.RequireNoError(err)
 			_, err = k.Deploy(context.Background(), ioutil.Discard, test.builds)
 
@@ -251,12 +257,13 @@ func TestKustomizeCleanup(t *testing.T) {
 		testutil.Run(t, test.description, func(t *testutil.T) {
 			t.Override(&util.DefaultExecCommand, test.commands)
 			t.Override(&KustomizeBinaryCheck, func() bool { return true })
+			t.Override(&GetProvider, getNoopProvider)
 
 			k, err := NewDeployer(&kustomizeConfig{
 				workingDir: tmpDir.Root(),
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{
 					Namespace: kubectl.TestNamespace}},
-			}, nil, component.NoopComponentProvider{}, &test.kustomize)
+			}, &label.DefaultLabeller{}, &test.kustomize)
 			t.RequireNoError(err)
 			err = k.Cleanup(context.Background(), ioutil.Discard)
 
@@ -458,7 +465,9 @@ func TestDependenciesForKustomization(t *testing.T) {
 				tmpDir.Write(path, contents)
 			}
 
-			k, err := NewDeployer(&kustomizeConfig{}, nil, component.NoopComponentProvider{}, &latestV1.KustomizeDeploy{KustomizePaths: kustomizePaths})
+			t.Override(&GetProvider, getNoopProvider)
+
+			k, err := NewDeployer(&kustomizeConfig{}, &label.DefaultLabeller{}, &latestV1.KustomizeDeploy{KustomizePaths: kustomizePaths})
 			t.RequireNoError(err)
 
 			deps, err := k.Dependencies()
@@ -541,7 +550,7 @@ func TestKustomizeRender(t *testing.T) {
 	tests := []struct {
 		description    string
 		builds         []graph.Artifact
-		labels         map[string]string
+		labels         []string
 		kustomizations []kustomizationCall
 		expected       string
 		shouldErr      bool
@@ -598,7 +607,7 @@ spec:
 					Tag:       "gcr.io/project/image2:tag2",
 				},
 			},
-			labels: map[string]string{"user/label": "test"},
+			labels: []string{"user/label=test"},
 			kustomizations: []kustomizationCall{
 				{
 					folder: ".",
@@ -697,12 +706,15 @@ spec:
 				kustomizationPaths = append(kustomizationPaths, kustomizationCall.folder)
 			}
 			t.Override(&util.DefaultExecCommand, fakeCmd)
+			t.Override(&GetProvider, getNoopProvider)
 			t.NewTempDir().Chdir()
+
+			labeller := label.NewLabeller(false, test.labels, "")
 
 			k, err := NewDeployer(&kustomizeConfig{
 				workingDir: ".",
 				RunContext: runcontext.RunContext{Opts: config.SkaffoldOptions{Namespace: kubectl.TestNamespace}},
-			}, test.labels, component.NoopComponentProvider{}, &latestV1.KustomizeDeploy{
+			}, labeller, &latestV1.KustomizeDeploy{
 				KustomizePaths: kustomizationPaths,
 			})
 			t.RequireNoError(err)

@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kpt"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kustomize"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/runner/runcontext"
 	latestV1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
@@ -65,7 +66,7 @@ func TestGetDeployer(tOuter *testing.T) {
 				expected: deploy.NewDeployerMux([]deploy.Deployer{
 					t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 						Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-					}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+					}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 						Flags: latestV1.KubectlFlags{},
 					})).(deploy.Deployer),
 				}, false),
@@ -76,7 +77,7 @@ func TestGetDeployer(tOuter *testing.T) {
 				expected: deploy.NewDeployerMux([]deploy.Deployer{
 					t.RequireNonNilResult(kustomize.NewDeployer(&runcontext.RunContext{
 						Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-					}, nil, component.NoopComponentProvider{}, &latestV1.KustomizeDeploy{
+					}, &label.DefaultLabeller{}, &latestV1.KustomizeDeploy{
 						Flags: latestV1.KubectlFlags{},
 					})).(deploy.Deployer),
 				}, false),
@@ -94,7 +95,7 @@ func TestGetDeployer(tOuter *testing.T) {
 				apply:       true,
 				expected: t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-				}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+				}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 					Flags: latestV1.KubectlFlags{},
 				})).(deploy.Deployer),
 			},
@@ -105,7 +106,7 @@ func TestGetDeployer(tOuter *testing.T) {
 				apply:       true,
 				expected: t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-				}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+				}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 					Flags: latestV1.KubectlFlags{},
 				})).(deploy.Deployer),
 			},
@@ -140,7 +141,7 @@ func TestGetDeployer(tOuter *testing.T) {
 							DeployType: test.cfg,
 						},
 					}}),
-				}, component.NoopComponentProvider{}, nil)
+				}, &label.DefaultLabeller{})
 
 				t.CheckError(test.shouldErr, err)
 				t.CheckTypeEquality(test.expected, deployer)
@@ -160,6 +161,12 @@ func TestGetDeployer(tOuter *testing.T) {
 
 func TestGetDefaultDeployer(tOuter *testing.T) {
 	testutil.Run(tOuter, "TestGetDeployer", func(t *testutil.T) {
+		getNoopProvider := func(config component.Config, labeller *label.DefaultLabeller) component.Provider {
+			return component.NoopComponentProvider{}
+		}
+		t.Override(&kubectl.GetProvider, getNoopProvider)
+		t.Override(&helm.GetProvider, getNoopProvider)
+		t.Override(&kustomize.GetProvider, getNoopProvider)
 		tests := []struct {
 			name      string
 			cfgs      []latestV1.DeployType
@@ -173,7 +180,7 @@ func TestGetDefaultDeployer(tOuter *testing.T) {
 				}},
 				expected: t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-				}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+				}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 					Flags: latestV1.KubectlFlags{},
 				})).(*kubectl.Deployer),
 			},
@@ -189,7 +196,7 @@ func TestGetDefaultDeployer(tOuter *testing.T) {
 				}},
 				expected: t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-				}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+				}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 					Flags: latestV1.KubectlFlags{
 						Apply:  []string{"--foo"},
 						Global: []string{"--bar"},
@@ -223,7 +230,7 @@ func TestGetDefaultDeployer(tOuter *testing.T) {
 				}},
 				expected: t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-				}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+				}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 					Flags: latestV1.KubectlFlags{},
 				})).(*kubectl.Deployer),
 			},
@@ -234,7 +241,7 @@ func TestGetDefaultDeployer(tOuter *testing.T) {
 				}},
 				expected: t.RequireNonNilResult(kubectl.NewDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines([]latestV1.Pipeline{{}}),
-				}, nil, component.NoopComponentProvider{}, &latestV1.KubectlDeploy{
+				}, &label.DefaultLabeller{}, &latestV1.KubectlDeploy{
 					Flags: latestV1.KubectlFlags{},
 				})).(*kubectl.Deployer),
 			},
@@ -252,7 +259,7 @@ func TestGetDefaultDeployer(tOuter *testing.T) {
 				}
 				deployer, err := getDefaultDeployer(&runcontext.RunContext{
 					Pipelines: runcontext.NewPipelines(pipelines),
-				}, component.NoopComponentProvider{}, nil)
+				}, &label.DefaultLabeller{})
 
 				t.CheckErrorAndFailNow(test.shouldErr, err)
 

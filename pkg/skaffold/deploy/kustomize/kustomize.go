@@ -33,6 +33,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	deployerr "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/error"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/event"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
@@ -53,7 +54,8 @@ var (
 	DefaultKustomizePath = "."
 	KustomizeFilePaths   = []string{"kustomization.yaml", "kustomization.yml", "Kustomization"}
 	basePath             = "base"
-	KustomizeBinaryCheck = kustomizeBinaryExists // For testing
+	KustomizeBinaryCheck = kustomizeBinaryExists          // For testing
+	GetProvider          = component.NewComponentProvider // For testing
 )
 
 // kustomization is the content of a kustomization.yaml file.
@@ -121,7 +123,7 @@ type Deployer struct {
 	useKubectlKustomize bool
 }
 
-func NewDeployer(cfg kubectl.Config, labels map[string]string, provider component.Provider, d *latestV1.KustomizeDeploy) (*Deployer, error) {
+func NewDeployer(cfg kubectl.Config, labeller *label.DefaultLabeller, d *latestV1.KustomizeDeploy) (*Deployer, error) {
 	defaultNamespace := ""
 	if d.DefaultNamespace != nil {
 		var err error
@@ -136,6 +138,7 @@ func NewDeployer(cfg kubectl.Config, labels map[string]string, provider componen
 	useKubectlKustomize := !KustomizeBinaryCheck() && kubectlVersionCheck(kubectl)
 
 	podSelector := kubernetes.NewImageList()
+	provider := GetProvider(cfg, labeller)
 	return &Deployer{
 		KustomizeDeploy:     d,
 		podSelector:         podSelector,
@@ -148,7 +151,7 @@ func NewDeployer(cfg kubectl.Config, labels map[string]string, provider componen
 		kubectl:             kubectl,
 		insecureRegistries:  cfg.GetInsecureRegistries(),
 		globalConfig:        cfg.GlobalConfig(),
-		labels:              labels,
+		labels:              labeller.Labels(),
 		useKubectlKustomize: useKubectlKustomize,
 	}, nil
 }
