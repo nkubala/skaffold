@@ -39,7 +39,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/constants"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/component"
 	deployerr "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/error"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
@@ -124,7 +124,7 @@ type Config interface {
 }
 
 // NewDeployer returns a configured Deployer.  Returns an error if current version of helm is less than 3.0.0.
-func NewDeployer(cfg Config, labels map[string]string, provider deploy.ComponentProvider, h *latestV1.HelmDeploy) (*Deployer, error) {
+func NewDeployer(cfg Config, labels map[string]string, provider component.Provider, h *latestV1.HelmDeploy) (*Deployer, error) {
 	hv, err := binVer()
 	if err != nil {
 		return nil, versionGetErr(err)
@@ -149,12 +149,12 @@ func NewDeployer(cfg Config, labels map[string]string, provider deploy.Component
 	return &Deployer{
 		HelmDeploy:     h,
 		podSelector:    podSelector,
-		accessor:       provider.Accessor.GetKubernetesAccessor(cfg, podSelector),
-		debugger:       provider.Debugger.GetKubernetesDebugger(podSelector),
-		imageLoader:    provider.ImageLoader.GetKubernetesImageLoader(cfg),
-		logger:         provider.Logger.GetKubernetesLogger(podSelector, kubectl),
-		statusMonitor:  provider.Monitor.GetKubernetesMonitor(cfg),
-		syncer:         provider.Syncer.GetKubernetesSyncer(podSelector, kubectl),
+		accessor:       provider.GetKubernetesAccessor(cfg, podSelector),
+		debugger:       provider.GetKubernetesDebugger(podSelector),
+		imageLoader:    provider.GetKubernetesImageLoader(cfg),
+		logger:         provider.GetKubernetesLogger(podSelector, kubectl),
+		statusMonitor:  provider.GetKubernetesMonitor(cfg),
+		syncer:         provider.GetKubernetesSyncer(kubectl),
 		originalImages: originalImages,
 		kubeContext:    cfg.GetKubeContext(),
 		kubeConfig:     cfg.GetKubeConfig(),
