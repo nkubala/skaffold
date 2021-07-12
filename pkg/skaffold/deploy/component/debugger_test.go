@@ -22,20 +22,9 @@ import (
 
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
-	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
-
-type mockDebugConfig struct {
-	Config
-	runMode config.RunMode
-}
-
-func (m mockDebugConfig) Mode() config.RunMode                        { return m.runMode }
-func (m mockDebugConfig) Tail() bool                                  { return true }
-func (m mockDebugConfig) PipelineForImage(string) (v1.Pipeline, bool) { return v1.Pipeline{}, true }
-func (m mockDebugConfig) DefaultPipeline() v1.Pipeline                { return v1.Pipeline{} }
-func (m mockAccessConfig) GetNamespaces() []string                    { return nil }
 
 func TestGetDebugger(t *testing.T) {
 	tests := []struct {
@@ -60,7 +49,7 @@ func TestGetDebugger(t *testing.T) {
 
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
-			m := NewComponentProvider(mockDebugConfig{runMode: test.runMode}, nil).GetKubernetesDebugger(nil)
+			m := NewKubernetesProvider(mockConfig{runMode: test.runMode}, label.NewLabeller(false, nil, ""), nil, nil).Debugger()
 			t.CheckDeepEqual(test.isNoop, reflect.Indirect(reflect.ValueOf(m)).Type() == reflect.TypeOf(debug.NoopDebugger{}))
 		})
 	}

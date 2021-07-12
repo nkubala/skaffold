@@ -28,6 +28,8 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kubectl"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/kustomize"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
+	pkgkubectl "github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/runner/runcontext"
 	latestV1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
@@ -161,7 +163,7 @@ func TestGetDeployer(tOuter *testing.T) {
 
 func TestGetDefaultDeployer(tOuter *testing.T) {
 	testutil.Run(tOuter, "TestGetDeployer", func(t *testutil.T) {
-		getNoopProvider := func(config component.Config, labeller *label.DefaultLabeller) component.Provider {
+		getNoopProvider := func(config component.KubernetesConfig, labeller *label.DefaultLabeller, podSelector *kubernetes.ImageList, cli *pkgkubectl.CLI) component.Provider {
 			return component.NoopComponentProvider{}
 		}
 		t.Override(&kubectl.GetProvider, getNoopProvider)

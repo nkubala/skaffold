@@ -19,11 +19,6 @@ package component
 import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/access"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
-	k8sloader "github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/loader"
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/portforward"
-	k8sstatus "github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/status"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/loader"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/status"
@@ -33,26 +28,9 @@ import (
 // NoopComponentProvider is for tests
 type NoopComponentProvider struct{}
 
-func (n NoopComponentProvider) GetKubernetesAccessor(portforward.Config, *kubernetes.ImageList) access.Accessor {
-	return &access.NoopAccessor{}
-}
-
-func (n NoopComponentProvider) GetKubernetesDebugger(*kubernetes.ImageList) debug.Debugger {
-	return &debug.NoopDebugger{}
-}
-
-func (n NoopComponentProvider) GetKubernetesLogger(*kubernetes.ImageList, *kubectl.CLI) log.Logger {
-	return &log.NoopLogger{}
-}
-
-func (n NoopComponentProvider) GetKubernetesImageLoader(k8sloader.Config) loader.ImageLoader {
-	return &loader.NoopImageLoader{}
-}
-
-func (n NoopComponentProvider) GetKubernetesMonitor(k8sstatus.Config) status.Monitor {
-	return &status.NoopMonitor{}
-}
-
-func (n NoopComponentProvider) GetKubernetesSyncer(*kubectl.CLI) sync.Syncer {
-	return &sync.NoopSyncer{}
-}
+func (n NoopComponentProvider) Accessor() access.Accessor       { return &access.NoopAccessor{} }
+func (n NoopComponentProvider) Debugger() debug.Debugger        { return &debug.NoopDebugger{} }
+func (n NoopComponentProvider) Logger() log.Logger              { return &log.NoopLogger{} }
+func (n NoopComponentProvider) ImageLoader() loader.ImageLoader { return &loader.NoopImageLoader{} }
+func (n NoopComponentProvider) Monitor() status.Monitor         { return &status.NoopMonitor{} }
+func (n NoopComponentProvider) Syncer() sync.Syncer             { return &sync.NoopSyncer{} }

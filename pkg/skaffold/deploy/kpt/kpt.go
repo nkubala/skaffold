@@ -74,7 +74,7 @@ const (
 	kustomizeVersionRegexP = `{Version:(kustomize/)?(\S+) GitCommit:\S+ BuildDate:\S+ GoOs:\S+ GoArch:\S+}`
 )
 
-var GetProvider = component.NewComponentProvider // For testing
+var GetProvider = component.NewKubernetesProvider // For testing
 
 // Deployer deploys workflows with kpt CLI
 type Deployer struct {
@@ -111,17 +111,17 @@ type Config interface {
 func NewDeployer(cfg Config, labeller *label.DefaultLabeller, d *latestV1.KptDeploy) *Deployer {
 	podSelector := kubernetes.NewImageList()
 	kubectl := pkgkubectl.NewCLI(cfg, cfg.GetKubeNamespace())
-	provider := GetProvider(cfg, labeller)
+	provider := GetProvider(cfg, labeller, podSelector, kubectl)
 
 	return &Deployer{
 		KptDeploy:          d,
 		podSelector:        podSelector,
-		accessor:           provider.GetKubernetesAccessor(cfg, podSelector),
-		debugger:           provider.GetKubernetesDebugger(podSelector),
-		imageLoader:        provider.GetKubernetesImageLoader(cfg),
-		logger:             provider.GetKubernetesLogger(podSelector, kubectl),
-		statusMonitor:      provider.GetKubernetesMonitor(cfg),
-		syncer:             provider.GetKubernetesSyncer(kubectl),
+		accessor:           provider.Accessor(),
+		debugger:           provider.Debugger(),
+		imageLoader:        provider.ImageLoader(),
+		logger:             provider.Logger(),
+		statusMonitor:      provider.Monitor(),
+		syncer:             provider.Syncer(),
 		insecureRegistries: cfg.GetInsecureRegistries(),
 		labels:             labeller.Labels(),
 		globalConfig:       cfg.GlobalConfig(),

@@ -31,6 +31,8 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	deployutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/util"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
+	pkgkubectl "github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubectl"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/client"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/runner/runcontext"
 	latestV1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
@@ -38,7 +40,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
 
-var getNoopProvider = func(config component.Config, labeller *label.DefaultLabeller) component.Provider {
+var getNoopProvider = func(config component.KubernetesConfig, labeller *label.DefaultLabeller, podSelector *kubernetes.ImageList, cli *pkgkubectl.CLI) component.Provider {
 	return component.NoopComponentProvider{}
 }
 

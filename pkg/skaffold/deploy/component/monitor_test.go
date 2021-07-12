@@ -20,25 +20,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/config"
-	k8sstatus "github.com/GoogleContainerTools/skaffold/pkg/skaffold/kubernetes/status"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/status"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/util"
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
-
-type mockStatusConfig struct {
-	k8sstatus.Config
-	statusCheck *bool
-}
-
-func (m mockStatusConfig) StatusCheck() *bool { return m.statusCheck }
-
-func (m mockStatusConfig) GetKubeContext() string { return "" }
-
-func (m mockStatusConfig) StatusCheckDeadlineSeconds() int { return 0 }
-
-func (m mockStatusConfig) Muted() config.Muted { return config.Muted{} }
 
 func TestGetMonitor(t *testing.T) {
 	tests := []struct {
@@ -62,7 +48,7 @@ func TestGetMonitor(t *testing.T) {
 
 	for _, test := range tests {
 		testutil.Run(t, test.description, func(t *testutil.T) {
-			m := NewComponentProvider(nil, nil).GetKubernetesMonitor(mockStatusConfig{statusCheck: test.statusCheck})
+			m := NewKubernetesProvider(mockConfig{statusCheck: test.statusCheck}, label.NewLabeller(false, nil, ""), nil, nil).Monitor()
 			t.CheckDeepEqual(test.isNoop, reflect.Indirect(reflect.ValueOf(m)).Type() == reflect.TypeOf(status.NoopMonitor{}))
 		})
 	}

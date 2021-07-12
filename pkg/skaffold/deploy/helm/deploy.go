@@ -83,7 +83,7 @@ var (
 	osExecutable = os.Executable
 
 	// GetProvider can be overridden during testing
-	GetProvider = component.NewComponentProvider
+	GetProvider = component.NewKubernetesProvider
 )
 
 // Deployer deploys workflows using the helm CLI
@@ -148,17 +148,17 @@ func NewDeployer(cfg Config, labeller *label.DefaultLabeller, h *latestV1.HelmDe
 
 	podSelector := kubernetes.NewImageList()
 	kubectl := pkgkubectl.NewCLI(cfg, cfg.GetKubeNamespace())
-	provider := GetProvider(cfg, labeller)
+	provider := GetProvider(cfg, labeller, podSelector, kubectl)
 
 	return &Deployer{
 		HelmDeploy:     h,
 		podSelector:    podSelector,
-		accessor:       provider.GetKubernetesAccessor(cfg, podSelector),
-		debugger:       provider.GetKubernetesDebugger(podSelector),
-		imageLoader:    provider.GetKubernetesImageLoader(cfg),
-		logger:         provider.GetKubernetesLogger(podSelector, kubectl),
-		statusMonitor:  provider.GetKubernetesMonitor(cfg),
-		syncer:         provider.GetKubernetesSyncer(kubectl),
+		accessor:       provider.Accessor(),
+		debugger:       provider.Debugger(),
+		imageLoader:    provider.ImageLoader(),
+		logger:         provider.Logger(),
+		statusMonitor:  provider.Monitor(),
+		syncer:         provider.Syncer(),
 		originalImages: originalImages,
 		kubeContext:    cfg.GetKubeContext(),
 		kubeConfig:     cfg.GetKubeConfig(),

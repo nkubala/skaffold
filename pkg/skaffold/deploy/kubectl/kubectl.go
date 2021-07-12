@@ -51,7 +51,7 @@ import (
 )
 
 // GetProvider can be overridden during testing
-var GetProvider = component.NewComponentProvider
+var GetProvider = component.NewKubernetesProvider
 
 // Deployer deploys workflows using kubectl CLI.
 type Deployer struct {
@@ -92,17 +92,17 @@ func NewDeployer(cfg Config, labeller *label.DefaultLabeller, d *latestV1.Kubect
 
 	podSelector := kubernetes.NewImageList()
 	kubectl := NewCLI(cfg, d.Flags, defaultNamespace)
-	provider := GetProvider(cfg, labeller)
+	provider := GetProvider(cfg, labeller, podSelector, kubectl.CLI)
 
 	return &Deployer{
 		KubectlDeploy:      d,
 		podSelector:        podSelector,
-		accessor:           provider.GetKubernetesAccessor(cfg, podSelector),
-		debugger:           provider.GetKubernetesDebugger(podSelector),
-		imageLoader:        provider.GetKubernetesImageLoader(cfg),
-		logger:             provider.GetKubernetesLogger(podSelector, kubectl.CLI),
-		statusMonitor:      provider.GetKubernetesMonitor(cfg),
-		syncer:             provider.GetKubernetesSyncer(kubectl.CLI),
+		accessor:           provider.Accessor(),
+		debugger:           provider.Debugger(),
+		imageLoader:        provider.ImageLoader(),
+		logger:             provider.Logger(),
+		statusMonitor:      provider.Monitor(),
+		syncer:             provider.Syncer(),
 		workingDir:         cfg.GetWorkingDir(),
 		globalConfig:       cfg.GlobalConfig(),
 		defaultRepo:        cfg.DefaultRepo(),

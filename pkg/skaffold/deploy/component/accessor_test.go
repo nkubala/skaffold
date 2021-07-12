@@ -28,17 +28,28 @@ import (
 	"github.com/GoogleContainerTools/skaffold/testutil"
 )
 
-type mockAccessConfig struct {
+type mockConfig struct {
 	portforward.Config
 	opts config.PortForwardOptions
+
+	statusCheck *bool
+	runMode     config.RunMode
 }
 
-func (m mockAccessConfig) Mode() config.RunMode                            { return "" }
-func (m mockAccessConfig) PortForwardOptions() config.PortForwardOptions   { return m.opts }
-func (m mockAccessConfig) PortForwardResources() []*v1.PortForwardResource { return nil }
-func (m mockAccessConfig) GetKubeContext() string                          { return "" }
-func (m mockAccessConfig) GetKubeNamespace() string                        { return "" }
-func (m mockAccessConfig) GetKubeConfig() string                           { return "" }
+func (m mockConfig) Mode() config.RunMode                            { return m.runMode }
+func (m mockConfig) PortForwardOptions() config.PortForwardOptions   { return m.opts }
+func (m mockConfig) PortForwardResources() []*v1.PortForwardResource { return nil }
+func (m mockConfig) GetKubeContext() string                          { return "" }
+func (m mockConfig) GetKubeNamespace() string                        { return "" }
+func (m mockConfig) GetKubeConfig() string                           { return "" }
+func (m mockConfig) DefaultPipeline() v1.Pipeline                    { return v1.Pipeline{} }
+func (m mockConfig) LoadImages() bool                                { return true }
+func (m mockConfig) Muted() config.Muted                             { return config.Muted{} }
+func (m mockConfig) PipelineForImage(string) (v1.Pipeline, bool)     { return v1.Pipeline{}, true }
+func (m mockConfig) StatusCheck() *bool                              { return m.statusCheck }
+func (m mockConfig) GetNamespaces() []string                         { return nil }
+func (m mockConfig) StatusCheckDeadlineSeconds() int                 { return 1 }
+func (m mockConfig) Tail() bool                                      { return true }
 
 func TestGetAccessor(t *testing.T) {
 	tests := []struct {
@@ -66,7 +77,7 @@ func TestGetAccessor(t *testing.T) {
 			if test.enabled {
 				opts.Append("1") // default enabled mode
 			}
-			m := NewComponentProvider(nil, label.NewLabeller(false, nil, "")).GetKubernetesAccessor(mockAccessConfig{opts: opts}, nil)
+			m := NewKubernetesProvider(mockConfig{opts: opts}, label.NewLabeller(false, nil, ""), nil, nil).Accessor()
 			t.CheckDeepEqual(test.isNoop, reflect.Indirect(reflect.ValueOf(m)).Type() == reflect.TypeOf(access.NoopAccessor{}))
 		})
 	}

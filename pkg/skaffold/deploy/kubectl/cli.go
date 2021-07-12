@@ -55,7 +55,7 @@ type Config interface {
 	kloader.Config
 	portforward.Config
 	deploy.Config
-	component.Config
+	component.KubernetesConfig
 	ForceDeploy() bool
 	WaitForDeletions() config.WaitForDeletions
 	Mode() config.RunMode

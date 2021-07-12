@@ -54,8 +54,8 @@ var (
 	DefaultKustomizePath = "."
 	KustomizeFilePaths   = []string{"kustomization.yaml", "kustomization.yml", "Kustomization"}
 	basePath             = "base"
-	KustomizeBinaryCheck = kustomizeBinaryExists          // For testing
-	GetProvider          = component.NewComponentProvider // For testing
+	KustomizeBinaryCheck = kustomizeBinaryExists           // For testing
+	GetProvider          = component.NewKubernetesProvider // For testing
 )
 
 // kustomization is the content of a kustomization.yaml file.
@@ -138,16 +138,17 @@ func NewDeployer(cfg kubectl.Config, labeller *label.DefaultLabeller, d *latestV
 	useKubectlKustomize := !KustomizeBinaryCheck() && kubectlVersionCheck(kubectl)
 
 	podSelector := kubernetes.NewImageList()
-	provider := GetProvider(cfg, labeller)
+	provider := GetProvider(cfg, labeller, podSelector, kubectl.CLI)
+
 	return &Deployer{
 		KustomizeDeploy:     d,
 		podSelector:         podSelector,
-		accessor:            provider.GetKubernetesAccessor(cfg, podSelector),
-		debugger:            provider.GetKubernetesDebugger(podSelector),
-		imageLoader:         provider.GetKubernetesImageLoader(cfg),
-		logger:              provider.GetKubernetesLogger(podSelector, kubectl.CLI),
-		statusMonitor:       provider.GetKubernetesMonitor(cfg),
-		syncer:              provider.GetKubernetesSyncer(kubectl.CLI),
+		accessor:            provider.Accessor(),
+		debugger:            provider.Debugger(),
+		imageLoader:         provider.ImageLoader(),
+		logger:              provider.Logger(),
+		statusMonitor:       provider.Monitor(),
+		syncer:              provider.Syncer(),
 		kubectl:             kubectl,
 		insecureRegistries:  cfg.GetInsecureRegistries(),
 		globalConfig:        cfg.GlobalConfig(),
