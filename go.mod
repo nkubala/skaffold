@@ -43,7 +43,7 @@ require (
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/ko v0.8.4-0.20210615195035-ee2353837872
 	github.com/google/uuid v1.1.2
-	github.com/grpc-ecosystem/grpc-gateway v1.14.8
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/heroku/color v0.0.6
 	github.com/imdario/mergo v0.3.9
 	github.com/karrick/godirwalk v1.15.6
@@ -64,7 +64,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/segmentio/textio v1.2.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/spf13/cobra v1.1.3
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/tektoncd/pipeline v0.5.1-0.20190731183258-9d7e37e85bf8
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -86,7 +86,7 @@ require (
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	honnef.co/go/tools v0.1.3 // indirect
 	k8s.io/api v0.19.7
 	k8s.io/apimachinery v0.19.7
