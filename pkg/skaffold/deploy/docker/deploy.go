@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/google/uuid"
@@ -30,6 +31,9 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/debug"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/deploy/label"
 	dockerutil "github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/logger"
+	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/docker/tracker"
+
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/graph"
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/log"
 	v1 "github.com/GoogleContainerTools/skaffold/pkg/skaffold/schema/latest/v1"
@@ -46,6 +50,7 @@ type Deployer struct {
 	syncer   pkgsync.Syncer
 
 	cfg                *v1.DockerDeploy
+	tracker            *tracker.ContainerTracker
 	client             dockerutil.LocalDaemon
 	deployedContainers map[string]string // imageName -> containerID
 	network            string
@@ -58,22 +63,32 @@ func NewDeployer(cfg dockerutil.Config, labeller *label.DefaultLabeller, d *v1.D
 		return nil, err
 	}
 
+	tracker := tracker.NewContainerTracker()
+	l, err := logger.NewLogger(tracker, cfg)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(os.Stdout, "retrieved logger: %+v\n", l)
+
 	return &Deployer{
 		cfg:                d,
 		client:             client,
 		deployedContainers: make(map[string]string),
 		network:            fmt.Sprintf("skaffold-network-%s", uuid.New().String()),
 		// TODO(nkubala): implement components
+		tracker:  tracker,
 		accessor: &access.NoopAccessor{},
 		debugger: &debug.NoopDebugger{},
-		logger:   &log.NoopLogger{},
+		logger:   l,
 		monitor:  &status.NoopMonitor{},
 		syncer:   &pkgsync.NoopSyncer{},
 	}, nil
 }
 
 func (d *Deployer) TrackBuildArtifacts(artifacts []graph.Artifact) {
-	// TODO(nkubala): implement with components
+	for _, artifact := range artifacts {
+		d.tracker.Add(artifact.ImageName, artifact.Tag)
+	}
 }
 
 func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Artifact) error {
@@ -109,6 +124,7 @@ func (d *Deployer) Deploy(ctx context.Context, out io.Writer, builds []graph.Art
 			return errors.Wrap(err, "creating container in local docker")
 		}
 		d.deployedContainers[b.ImageName] = id
+		d.tracker.Add(b.Tag, id)
 	}
 
 	return nil
